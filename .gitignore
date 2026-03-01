@@ -1,0 +1,41 @@
+# ===== Java / Maven =====
+aipclm-backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# ===== Python =====
+aipclm-ml-service/__pycache__/
+aipclm-ml-service/*.pyc
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Node (if frontend is restored) =====
+node_modules/
+.env
+.env.local
