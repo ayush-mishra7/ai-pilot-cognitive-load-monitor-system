@@ -5,6 +5,7 @@ import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
+import com.aipclm.system.session.service.WebSocketBroadcastService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,6 +27,7 @@ class SimulationSchedulerServiceTest {
 
     @Mock private SimulationOrchestratorService orchestratorService;
     @Mock private FlightSessionRepository flightSessionRepository;
+    @Mock private WebSocketBroadcastService webSocketBroadcastService;
 
     private SimulationSchedulerService scheduler;
 
@@ -34,7 +36,7 @@ class SimulationSchedulerServiceTest {
 
     @BeforeEach
     void setUp() {
-        scheduler = new SimulationSchedulerService(orchestratorService, flightSessionRepository);
+        scheduler = new SimulationSchedulerService(orchestratorService, flightSessionRepository, webSocketBroadcastService);
         pilot = TestFixtures.pilotNovice();
         session = TestFixtures.runningSession(pilot);
     }

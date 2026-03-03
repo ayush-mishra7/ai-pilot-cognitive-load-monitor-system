@@ -15,6 +15,7 @@ import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
+import com.aipclm.system.session.service.WebSocketBroadcastService;
 import com.aipclm.system.simulation.service.SimulationEngineService;
 import com.aipclm.system.simulation.service.SimulationOrchestratorService;
 import com.aipclm.system.simulation.service.SimulationSchedulerService;
@@ -46,6 +47,7 @@ public class SessionTestController {
         private final RiskAssessmentRepository riskAssessmentRepository;
         private final SimulationOrchestratorService simulationOrchestratorService;
         private final SimulationSchedulerService simulationSchedulerService;
+        private final WebSocketBroadcastService webSocketBroadcastService;
 
         public SessionTestController(SimulationEngineService simulationEngineService,
                         FlightSessionRepository flightSessionRepository,
@@ -57,7 +59,8 @@ public class SessionTestController {
                         RecommendationEngineService recommendationEngineService,
                         RiskAssessmentRepository riskAssessmentRepository,
                         SimulationOrchestratorService simulationOrchestratorService,
-                        SimulationSchedulerService simulationSchedulerService) {
+                        SimulationSchedulerService simulationSchedulerService,
+                        WebSocketBroadcastService webSocketBroadcastService) {
                 this.simulationEngineService = simulationEngineService;
                 this.flightSessionRepository = flightSessionRepository;
                 this.pilotRepository = pilotRepository;
@@ -69,6 +72,7 @@ public class SessionTestController {
                 this.riskAssessmentRepository = riskAssessmentRepository;
                 this.simulationOrchestratorService = simulationOrchestratorService;
                 this.simulationSchedulerService = simulationSchedulerService;
+                this.webSocketBroadcastService = webSocketBroadcastService;
         }
 
         @PostMapping("/start")
@@ -86,6 +90,8 @@ public class SessionTestController {
                                 .status(FlightSessionStatus.RUNNING)
                                 .build();
                 session = flightSessionRepository.save(session);
+                // Broadcast new session to all connected WebSocket clients
+                webSocketBroadcastService.broadcastSessionList();
                 return ResponseEntity.ok(session.getId());
         }
 
@@ -121,6 +127,8 @@ public class SessionTestController {
                         flightSessionRepository.save(session);
                 }
                 simulationSchedulerService.startSession(sessionId);
+                // Broadcast updated session list
+                webSocketBroadcastService.broadcastSessionList();
                 return ResponseEntity.ok("Scheduler started for session " + sessionId);
         }
 
@@ -135,6 +143,9 @@ public class SessionTestController {
                         session.setSessionEndTime(Instant.now());
                         flightSessionRepository.save(session);
                 }
+
+                // Broadcast updated session list (status changed)
+                webSocketBroadcastService.broadcastSessionList();
 
                 return ResponseEntity.ok("Scheduler stopped for session " + sessionId);
         }

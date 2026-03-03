@@ -3,6 +3,7 @@ package com.aipclm.system.simulation.service;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
+import com.aipclm.system.session.service.WebSocketBroadcastService;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,14 +21,17 @@ public class SimulationSchedulerService {
 
     private final SimulationOrchestratorService orchestratorService;
     private final FlightSessionRepository flightSessionRepository;
+    private final WebSocketBroadcastService webSocketBroadcastService;
 
     private final ScheduledExecutorService executorService;
     private final ConcurrentHashMap<UUID, ScheduledFuture<?>> activeTasks;
 
     public SimulationSchedulerService(SimulationOrchestratorService orchestratorService,
-            FlightSessionRepository flightSessionRepository) {
+            FlightSessionRepository flightSessionRepository,
+            WebSocketBroadcastService webSocketBroadcastService) {
         this.orchestratorService = orchestratorService;
         this.flightSessionRepository = flightSessionRepository;
+        this.webSocketBroadcastService = webSocketBroadcastService;
         this.executorService = Executors.newScheduledThreadPool(10);
         this.activeTasks = new ConcurrentHashMap<>();
     }
@@ -81,11 +85,17 @@ public class SimulationSchedulerService {
                     // Mark session as completed
                     currentSession.setStatus(FlightSessionStatus.COMPLETED);
                     flightSessionRepository.save(currentSession);
+
+                    // Broadcast final session list update (status → COMPLETED)
+                    webSocketBroadcastService.broadcastSessionList();
                     return;
                 }
 
                 // Execute the single block orchestrated simulation step
                 orchestratorService.runSingleSimulationStep(sessionId);
+
+                // Broadcast real-time updates via WebSocket (after Tx commits)
+                webSocketBroadcastService.broadcastSessionState(sessionId);
 
             } catch (Exception e) {
                 log.error("[Scheduler] Error running simulation step for session {}: {}", sessionId, e.getMessage(), e);

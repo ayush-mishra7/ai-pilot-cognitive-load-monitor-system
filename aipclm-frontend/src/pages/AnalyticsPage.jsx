@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCognitiveHistory, getRiskHistory } from '../services/api';
 import { useSession } from '../context/SessionContext';
+import { useWebSocket } from '../hooks/useWebSocket';
 import analyticsBg from '../assets/analytics-page.png';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,14 +60,30 @@ export default function AnalyticsPage() {
     }
   }, [sessionId]);
 
+  /* Initial REST fetch for hydration */
   useEffect(() => {
     setStatus('loading');
     setCogHistory([]);
     setRiskHistory([]);
     fetchData();
-    pollRef.current = setInterval(fetchData, 3000);
-    return () => clearInterval(pollRef.current);
   }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* WebSocket subscriptions — replace setInterval polling */
+  useWebSocket(
+    validSession ? `/topic/session/${sessionId}/cognitive-history` : null,
+    useCallback((entry) => {
+      setCogHistory((prev) => [...prev, entry]);
+      setStatus('live');
+    }, [])
+  );
+
+  useWebSocket(
+    validSession ? `/topic/session/${sessionId}/risk-history` : null,
+    useCallback((entry) => {
+      setRiskHistory((prev) => [...prev, entry]);
+      setStatus('live');
+    }, [])
+  );
 
   /* ── Derived chart data ── */
   const smoothedLoads = cogHistory.map((c) => c.smoothedLoad ?? 0);

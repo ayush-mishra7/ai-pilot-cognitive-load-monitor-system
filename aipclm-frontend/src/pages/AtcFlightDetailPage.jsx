@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLatestState, getCognitiveHistory, getRiskHistory } from '../services/api';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function AtcFlightDetailPage() {
   const { sessionId } = useParams();
@@ -30,11 +31,25 @@ export default function AtcFlightDetailPage() {
     }
   }, [sessionId]);
 
+  /* Initial REST fetch for hydration */
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 2000);
-    return () => clearInterval(interval);
   }, [fetchAll]);
+
+  /* WebSocket subscriptions — replace setInterval polling */
+  useWebSocket(`/topic/session/${sessionId}/state`, useCallback((data) => {
+    setLatest(data);
+    setLoading(false);
+    setError(null);
+  }, []));
+
+  useWebSocket(`/topic/session/${sessionId}/cognitive-history`, useCallback((entry) => {
+    setCogHistory((prev) => [...prev, entry]);
+  }, []));
+
+  useWebSocket(`/topic/session/${sessionId}/risk-history`, useCallback((entry) => {
+    setRiskHistory((prev) => [...prev, entry]);
+  }, []));
 
   const riskColor = (r) => {
     if (r === 'CRITICAL') return '#FF3333';

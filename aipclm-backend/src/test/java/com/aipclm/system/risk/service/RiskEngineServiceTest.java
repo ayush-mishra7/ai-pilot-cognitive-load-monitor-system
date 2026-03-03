@@ -7,6 +7,7 @@ import com.aipclm.system.cognitive.repository.CognitiveStateRepository;
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.risk.model.RiskAssessment;
 import com.aipclm.system.risk.repository.RiskAssessmentRepository;
+import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
@@ -35,6 +36,7 @@ class RiskEngineServiceTest {
     @Mock private CognitiveStateRepository cognitiveStateRepository;
     @Mock private TelemetryFrameRepository telemetryFrameRepository;
     @Mock private RiskAssessmentRepository riskAssessmentRepository;
+    @Mock private FlightScenarioRepository scenarioRepository;
 
     @InjectMocks private RiskEngineService service;
 

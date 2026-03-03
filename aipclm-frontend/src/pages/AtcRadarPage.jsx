@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listSessions } from '../services/api';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function AtcRadarPage() {
   const navigate = useNavigate();
@@ -18,11 +19,17 @@ export default function AtcRadarPage() {
     }
   }, []);
 
+  /* Initial REST fetch for hydration */
   useEffect(() => {
     fetchFlights();
-    const interval = setInterval(fetchFlights, 3000);
-    return () => clearInterval(interval);
   }, [fetchFlights]);
+
+  /* WebSocket subscription — replaces setInterval polling */
+  useWebSocket('/topic/sessions', useCallback((data) => {
+    const list = Array.isArray(data) ? data : [];
+    setSessions(list);
+    setLoading(false);
+  }, []));
 
   const running = sessions.filter((s) => s.status === 'RUNNING');
   const completed = sessions.filter((s) => s.status === 'COMPLETED');

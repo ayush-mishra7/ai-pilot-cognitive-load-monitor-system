@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLatestState } from '../services/api';
 import { useSession } from '../context/SessionContext';
+import { useWebSocket } from '../hooks/useWebSocket';
 import dashboardBg from '../assets/dashboard-page.png';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,13 +53,21 @@ export default function DashboardPage() {
     }
   }, [sessionId, status]);
 
+  /* Initial REST fetch for hydration */
   useEffect(() => {
     setStatus('loading');
     setState(null);
     fetchState();
-    pollRef.current = setInterval(fetchState, 1000);
-    return () => clearInterval(pollRef.current);
   }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* WebSocket subscription — replaces setInterval polling */
+  useWebSocket(
+    validSession ? `/topic/session/${sessionId}/state` : null,
+    useCallback((data) => {
+      setState(data);
+      setStatus('live');
+    }, [])
+  );
 
   /* ── Derived values ── */
   const cog       = state?.cognitiveState ?? {};

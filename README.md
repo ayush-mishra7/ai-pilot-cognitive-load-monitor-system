@@ -22,7 +22,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Tests-115%20Passed-brightgreen?style=flat-square&logo=junit5&logoColor=white" alt="115 Tests Passed"/>
   <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square&logo=github-actions&logoColor=white" alt="Build Passing"/>
-  <img src="https://img.shields.io/badge/Phase-1%20Complete-blueviolet?style=flat-square" alt="Phase 1"/>
+  <img src="https://img.shields.io/badge/Phase-2%20Complete-blueviolet?style=flat-square" alt="Phase 2"/>
 </p>
 
 ---
@@ -115,9 +115,10 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 | 🔴 **4-Level Risk Classification** | LOW → MODERATE → HIGH → CRITICAL with hysteresis thresholds to prevent oscillation |
 | 🧀 **Swiss Cheese Safety Model** | 4-barrier breach detection (fatigue, errors, turbulence, physiological stress) inspired by James Reason's model |
 | 💡 **12 Recommendation Types** | 7 baseline + 5 scenario-aware (SQUAWK_7700, DELAY_TAKEOFF, DIVERT_TO_ALTERNATE, ENGAGE_AUTOPILOT, REDUCE_SPEED) |
-| 📊 **Real-Time Cockpit Dashboard** | 3-panel layout with telemetry gauges, cognitive load radial gauge, risk & recommendations — 1-second polling |
-| 📈 **Analytics Dashboard** | Sparkline trends, risk distribution bars, ML performance metrics — 3-second polling |
-| 🗼 **ATC Radar View** | Animated radar with risk-colored blips, flight strip panel, 3-second auto-refresh |
+| 📊 **Real-Time Cockpit Dashboard** | 3-panel layout with telemetry gauges, cognitive load radial gauge, risk & recommendations — WebSocket push |
+| 📈 **Analytics Dashboard** | Sparkline trends, risk distribution bars, ML performance metrics — WebSocket streaming |
+| 🗼 **ATC Radar View** | Animated radar with risk-colored blips, flight strip panel, WebSocket auto-refresh |
+| 🔌 **WebSocket Real-Time Streaming** | STOMP over SockJS replacing HTTP polling — per-session topic channels with auto-reconnect, exponential back-off, and REST fallback for initial hydration |
 | ⚛️ **Atomic Pipeline** | 5-stage @Transactional pipeline with full rollback on any stage failure |
 | 🔄 **EMA Smoothing** | Exponential Moving Average (α=0.3) over last 5 frames for stable load tracking |
 | 🛡️ **Duplicate Frame Guard** | Prevents duplicate telemetry frames on concurrent scheduler ticks |
@@ -136,15 +137,16 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 │  │  ATC Radar → ATC Flight Detail                                      │    │
 │  │  ScenarioConfigurator · RadialGauge · Sparkline · ThreeBackground   │    │
 │  └──────────────────────────────┬──────────────────────────────────────┘    │
-│                                 │ REST + JWT                                │
+│                                 │ REST + JWT + STOMP/SockJS WebSocket       │
 │  ┌──────────────────────────────▼──────────────────────────────────────┐    │
 │  │                   SPRING BOOT BACKEND (:8080)                       │    │
 │  │                                                                     │    │
 │  │  ┌──────────┐  ┌──────────┐  ┌───────────────┐  ┌──────────────┐  │    │
 │  │  │   Auth   │  │ Scenario │  │  Scheduler    │  │  Session     │  │    │
 │  │  │  JWT +   │  │  Engine  │  │  (1Hz tick)   │  │  Controller  │  │    │
-│  │  │  BCrypt  │  │  9-axis  │  └──────┬────────┘  └──────────────┘  │    │
-│  │  └──────────┘  └──────────┘         │                              │    │
+│  │  │  BCrypt  │  │  9-axis  │  │  + WS Push    │  │  + WS Bcast  │  │    │
+│  │  └──────────┘  └──────────┘  └──────┬────────┘  └──────────────┘  │    │
+│  │                                      │                              │    │
 │  │                              ┌──────▼────────┐                     │    │
 │  │                              │  Orchestrator  │ (Atomic Tx)        │    │
 │  │                              └──────┬────────┘                     │    │
@@ -243,6 +245,7 @@ Stage 5 ─ Persist & Commit
 | ![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-6DB33F?style=flat-square&logo=spring&logoColor=white) | ORM & repository layer |
 | ![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=flat-square&logo=springsecurity&logoColor=white) | JWT authentication & authorization |
 | ![Spring WebFlux](https://img.shields.io/badge/Spring_WebFlux-6DB33F?style=flat-square&logo=spring&logoColor=white) | Non-blocking ML service calls |
+| ![Spring WebSocket](https://img.shields.io/badge/Spring_WebSocket-6DB33F?style=flat-square&logo=spring&logoColor=white) | STOMP over SockJS real-time push |
 | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=flat-square&logo=postgresql&logoColor=white) | Production database |
 | ![H2](https://img.shields.io/badge/H2-0000BB?style=flat-square&logo=database&logoColor=white) | In-memory test database |
 | ![JJWT](https://img.shields.io/badge/JJWT_0.12.5-000000?style=flat-square) | JWT token generation & validation |
@@ -259,6 +262,8 @@ Stage 5 ─ Persist & Commit
 | ![Three.js](https://img.shields.io/badge/Three.js-000000?style=flat-square&logo=threedotjs&logoColor=white) | 3D animated background |
 | ![React Router](https://img.shields.io/badge/React_Router_7-CA4245?style=flat-square&logo=reactrouter&logoColor=white) | Client-side routing |
 | ![Axios](https://img.shields.io/badge/Axios-5A29E4?style=flat-square&logo=axios&logoColor=white) | HTTP client with JWT interceptor |
+| ![STOMP.js](https://img.shields.io/badge/STOMP.js_7-000000?style=flat-square) | STOMP WebSocket client |
+| ![SockJS](https://img.shields.io/badge/SockJS-FF6600?style=flat-square) | WebSocket fallback transport |
 
 ### ML Service
 
@@ -323,7 +328,8 @@ ai-pclm/
 │       │   ├── config/
 │       │   │   ├── CorsConfig.java
 │       │   │   ├── DataSeeder.java                  # Seed pilot@aipclm.com & tower@aipclm.com
-│       │   │   └── SecurityConfig.java              # Spring Security filter chain
+│       │   │   ├── SecurityConfig.java              # Spring Security filter chain
+│       │   │   └── WebSocketConfig.java             # STOMP/SockJS WebSocket config
 │       │   ├── pilot/
 │       │   │   ├── model/
 │       │   │   │   ├── Pilot.java
@@ -371,8 +377,10 @@ ai-pclm/
 │       │   │   ├── model/
 │       │   │   │   ├── FlightSession.java
 │       │   │   │   └── FlightSessionStatus.java
-│       │   │   └── repository/
-│       │   │       └── FlightSessionRepository.java
+│       │   │   ├── repository/
+│       │   │   │   └── FlightSessionRepository.java
+│       │   │   └── service/
+│       │   │       └── WebSocketBroadcastService.java    # Phase 2: STOMP broadcast
 │       │   ├── simulation/
 │       │   │   ├── service/
 │       │   │   │   ├── SimulationEngineService.java     # Scenario-aware telemetry gen
@@ -428,8 +436,11 @@ ai-pclm/
 │       │   └── AtcFlightDetailPage.jsx              # /atc/flight/:id — Flight detail
 │       ├── router/
 │       │   └── AppRouter.jsx                        # Route config with guards
+│       ├── hooks/
+│       │   └── useWebSocket.js                      # Phase 2: WebSocket subscription hook
 │       └── services/
-│           └── api.js                               # Axios client + JWT interceptor
+│           ├── api.js                               # Axios client + JWT interceptor
+│           └── websocket.js                         # Phase 2: STOMP/SockJS client
 │
 └── aipclm-ml-service/                               # Python ML Microservice
     ├── main.py                                      # FastAPI with /predict & /health
@@ -609,13 +620,13 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 |:-----:|------|:------:|-------------|
 | **0** | **Auth Foundation** | ✅ Done | JWT authentication, BCrypt, role-based access (PILOT/ATC), auto-seeded accounts, Spring Security config, React login/register |
 | **1** | **Scenario Engine** | ✅ Done | 9-axis flight scenario configuration, 3 presets (NORMAL/MODERATE/EXTREME), scenario-aware simulation modifiers, 5 new recommendation types, cockpit dashboard, analytics, ATC radar |
+| **2** | **WebSocket Real-Time Streaming** | ✅ Done | Replaced HTTP polling (1s–4s) with STOMP over SockJS WebSocket push. Per-session topic channels (`/topic/session/{id}/state`, `cognitive-history`, `risk-history`), global `/topic/sessions` channel, auto-reconnect with exponential back-off, REST fallback for initial hydration |
 
 ### Upcoming Phases
 
 | Phase | Name | Status | Description |
 |:-----:|------|:------:|-------------|
-| **2** | **WebSocket Real-Time Streaming** | 🔜 Next | Replace HTTP polling (1s/3s) with WebSocket push for sub-100ms dashboard updates. STOMP over SockJS with per-session topic channels. |
-| **3** | **Advanced ML Pipeline** | 📋 Planned | Replace simulated ML formula with a trained LSTM/Transformer model using NASA-TLX and MATB-II datasets. Add model versioning, A/B testing, and SHAP/LIME explainability layer. |
+| **3** | **Advanced ML Pipeline** | 🔜 Next | Replace simulated ML formula with a trained LSTM/Transformer model using NASA-TLX and MATB-II datasets. Add model versioning, A/B testing, and SHAP/LIME explainability layer. |
 | **4** | **Multi-Pilot & CRM Simulation** | 📋 Planned | Simulate Captain + First Officer with Crew Resource Management (CRM) cognitive interaction modeling. Shared cockpit state, cross-crew fatigue propagation. |
 | **5** | **Wearable & Sensor Integration** | 📋 Planned | Ingest real physiological data from Garmin HRM, EEG headbands, and eye trackers. Replace simulated biometrics with live sensor feeds. |
 | **6** | **Containerization & Orchestration** | 📋 Planned | **Docker** — Multi-stage Dockerfiles for backend, frontend, and ML service. Docker Compose for single-command local dev startup. **Kubernetes** — Helm charts for production deployment with auto-scaling, health probes, ConfigMaps, and Secrets. Horizontal Pod Autoscaler for ML inference under load. |

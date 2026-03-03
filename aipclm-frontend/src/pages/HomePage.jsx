@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { startSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario } from '../services/api';
 import { useSession } from '../context/SessionContext';
+import { useWebSocket } from '../hooks/useWebSocket';
 import ScenarioConfigurator, { DEFAULT_SCENARIO } from '../components/ScenarioConfigurator';
 import homeBg from '../assets/home-page.png';
 
@@ -49,17 +50,11 @@ export default function HomePage() {
     checkHealth();
   }, [fetchSessions, checkHealth]);
 
-  /* ─── Auto-refresh while any session is RUNNING ─── */
-  useEffect(() => {
-    const hasRunning = sessions.some((s) => s.status === 'RUNNING');
-    if (hasRunning && !pollRef.current) {
-      pollRef.current = setInterval(fetchSessions, 4000);
-    } else if (!hasRunning && pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [sessions, fetchSessions]);
+  /* ─── WebSocket subscription — replaces setInterval polling ─── */
+  useWebSocket('/topic/sessions', useCallback((data) => {
+    const list = Array.isArray(data) ? data : [];
+    setSessions(list);
+  }, []));
 
   /* ─── Create & start ─── */
   const handleStart = async () => {

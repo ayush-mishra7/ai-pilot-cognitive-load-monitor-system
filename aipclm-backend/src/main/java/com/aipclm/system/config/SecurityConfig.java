@@ -34,6 +34,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/session/health").permitAll()
 
+                // WebSocket endpoint — SockJS handshake must be unauthenticated
+                .requestMatchers("/ws/**").permitAll()
+
                 // ATC endpoints — require ATC or ADMIN role
                 .requestMatchers("/api/atc/**").hasAnyRole("ATC", "ADMIN")
 

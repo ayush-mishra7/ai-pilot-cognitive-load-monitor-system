@@ -4,6 +4,7 @@ import com.aipclm.system.TestFixtures;
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.pilot.model.PilotProfileType;
 import com.aipclm.system.pilot.repository.PilotRepository;
+import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
@@ -34,6 +35,7 @@ class SimulationEngineServiceTest {
     @Mock private FlightSessionRepository flightSessionRepository;
     @Mock private PilotRepository pilotRepository;
     @Mock private TelemetryFrameRepository telemetryFrameRepository;
+    @Mock private FlightScenarioRepository scenarioRepository;
 
     @InjectMocks private SimulationEngineService service;
 

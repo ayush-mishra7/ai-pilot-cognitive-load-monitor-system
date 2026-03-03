@@ -8,6 +8,7 @@ import com.aipclm.system.risk.model.RiskAssessment;
 import com.aipclm.system.risk.repository.RiskAssessmentRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.repository.FlightSessionRepository;
+import com.aipclm.system.session.service.WebSocketBroadcastService;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
 import jakarta.persistence.EntityManager;
@@ -38,6 +39,7 @@ public class SessionMonitoringController {
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final AIRecommendationRepository recommendationRepository;
     private final EntityManager entityManager;
+    private final WebSocketBroadcastService webSocketBroadcastService;
 
     /* ─── Health check ─── */
     @GetMapping("/health")
@@ -57,6 +59,7 @@ public class SessionMonitoringController {
         entityManager.createNativeQuery("DELETE FROM flight_scenario").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM flight_sessions").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM pilots").executeUpdate();
+        webSocketBroadcastService.broadcastSessionList();
         return ResponseEntity.ok(java.util.Map.of("purged", deleted));
     }
 
@@ -105,6 +108,8 @@ public class SessionMonitoringController {
             "DELETE FROM pilots WHERE id = :pid AND id NOT IN " +
             "(SELECT pilot_id FROM flight_sessions)")
             .setParameter("pid", pilotId).executeUpdate();
+
+        webSocketBroadcastService.broadcastSessionList();
 
         return ResponseEntity.noContent().build();
     }

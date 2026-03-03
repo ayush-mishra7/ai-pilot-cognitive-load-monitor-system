@@ -15,12 +15,14 @@ import com.aipclm.system.recommendation.service.RecommendationEngineService;
 import com.aipclm.system.risk.model.RiskAssessment;
 import com.aipclm.system.risk.repository.RiskAssessmentRepository;
 import com.aipclm.system.risk.service.RiskEngineService;
+import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.simulation.service.SimulationEngineService;
 import com.aipclm.system.simulation.service.SimulationOrchestratorService;
 import com.aipclm.system.simulation.service.SimulationSchedulerService;
+import com.aipclm.system.session.service.WebSocketBroadcastService;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -62,13 +64,14 @@ class SystemMustNotDoTest {
         @Mock private CognitiveStateRepository cognitiveStateRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
         @Mock private RiskAssessmentRepository riskAssessmentRepository;
+        @Mock private FlightScenarioRepository scenarioRepository;
 
         private RiskEngineService riskService;
 
         @BeforeEach
         void setUp() {
             riskService = new RiskEngineService(cognitiveStateRepository, telemetryFrameRepository,
-                    riskAssessmentRepository);
+                    riskAssessmentRepository, scenarioRepository);
         }
 
         @Test
@@ -189,13 +192,14 @@ class SystemMustNotDoTest {
         @Mock private FlightSessionRepository flightSessionRepository;
         @Mock private com.aipclm.system.pilot.repository.PilotRepository pilotRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
+        @Mock private FlightScenarioRepository scenarioRepository;
 
         private SimulationEngineService engineService;
 
         @BeforeEach
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
-                    telemetryFrameRepository);
+                    telemetryFrameRepository, scenarioRepository);
         }
 
         @Test
@@ -236,12 +240,13 @@ class SystemMustNotDoTest {
 
         @Mock private SimulationOrchestratorService orchestratorService;
         @Mock private FlightSessionRepository flightSessionRepository;
+        @Mock private WebSocketBroadcastService webSocketBroadcastService;
 
         private SimulationSchedulerService schedulerService;
 
         @BeforeEach
         void setUp() {
-            schedulerService = new SimulationSchedulerService(orchestratorService, flightSessionRepository);
+            schedulerService = new SimulationSchedulerService(orchestratorService, flightSessionRepository, webSocketBroadcastService);
         }
 
         @AfterEach
@@ -418,13 +423,14 @@ class SystemMustNotDoTest {
         @Mock private CognitiveStateRepository cognitiveStateRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
         @Mock private RiskAssessmentRepository riskAssessmentRepository;
+        @Mock private FlightScenarioRepository scenarioRepository;
 
         private RiskEngineService riskService;
 
         @BeforeEach
         void setUp() {
             riskService = new RiskEngineService(cognitiveStateRepository, telemetryFrameRepository,
-                    riskAssessmentRepository);
+                    riskAssessmentRepository, scenarioRepository);
         }
 
         @Test
@@ -472,12 +478,13 @@ class SystemMustNotDoTest {
 
         @Mock private SimulationOrchestratorService orchestratorService;
         @Mock private FlightSessionRepository flightSessionRepository;
+        @Mock private WebSocketBroadcastService webSocketBroadcastService;
 
         @Test
         @DisplayName("Shutdown after multiple sessions → no exception, clean exit")
         void shutdownCleansUp() {
             SimulationSchedulerService scheduler = new SimulationSchedulerService(
-                    orchestratorService, flightSessionRepository);
+                    orchestratorService, flightSessionRepository, webSocketBroadcastService);
 
             Pilot pilot = TestFixtures.pilotNovice();
             FlightSession s1 = TestFixtures.runningSession(pilot);
@@ -504,13 +511,14 @@ class SystemMustNotDoTest {
         @Mock private FlightSessionRepository flightSessionRepository;
         @Mock private com.aipclm.system.pilot.repository.PilotRepository pilotRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
+        @Mock private FlightScenarioRepository scenarioRepository;
 
         private SimulationEngineService engineService;
 
         @BeforeEach
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
-                    telemetryFrameRepository);
+                    telemetryFrameRepository, scenarioRepository);
         }
 
         @Test
@@ -544,13 +552,14 @@ class SystemMustNotDoTest {
         @Mock private RiskAssessmentRepository riskAssessmentRepository;
         @Mock private AIRecommendationRepository aiRecommendationRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
+        @Mock private FlightScenarioRepository scenarioRepository;
 
         private RecommendationEngineService recService;
 
         @BeforeEach
         void setUp() {
             recService = new RecommendationEngineService(riskAssessmentRepository,
-                    aiRecommendationRepository, telemetryFrameRepository);
+                    aiRecommendationRepository, telemetryFrameRepository, scenarioRepository);
         }
 
         @Test

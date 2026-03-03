@@ -10,6 +10,7 @@ import com.aipclm.system.recommendation.model.Severity;
 import com.aipclm.system.recommendation.repository.AIRecommendationRepository;
 import com.aipclm.system.risk.model.RiskAssessment;
 import com.aipclm.system.risk.repository.RiskAssessmentRepository;
+import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.telemetry.model.PhaseOfFlight;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
@@ -38,6 +39,7 @@ class RecommendationEngineServiceTest {
     @Mock private RiskAssessmentRepository riskAssessmentRepository;
     @Mock private AIRecommendationRepository aiRecommendationRepository;
     @Mock private TelemetryFrameRepository telemetryFrameRepository;
+    @Mock private FlightScenarioRepository scenarioRepository;
 
     @InjectMocks private RecommendationEngineService service;
 
