@@ -16,4 +16,15 @@ public class MLPredictionRequest {
     private double stressIndex;
     private double fatigueIndex;
     private String phaseOfFlight;
+    // Extended features for trained model
+    private double weatherSeverity;
+    private double heartRate;
+    private double blinkRate;
+    private double controlJitterIndex;
+    private double checklistDelaySeconds;
+    private double taskSwitchRate;
+    private int errorCount;
+    private double altitude;
+    private double airspeed;
+    private double verticalSpeed;
 }

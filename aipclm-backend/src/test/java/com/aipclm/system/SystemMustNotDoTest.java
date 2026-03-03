@@ -41,8 +41,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -172,6 +171,8 @@ class SystemMustNotDoTest {
             when(mlInferenceService.callPredictionAPI(any(), anyDouble())).thenReturn(
                     MLPredictionResponse.builder()
                             .predictedLoad(30.0).errorProbability(0.3).confidenceScore(0.5).build());
+            when(cognitiveStateRepository.findRecentBySessionId(any(UUID.class), anyInt()))
+                    .thenReturn(List.of());
             when(cognitiveStateRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             assertThatCode(() -> cogLoadService.computeCognitiveLoad(frame.getId()))
@@ -375,6 +376,8 @@ class SystemMustNotDoTest {
             when(mlInferenceService.callPredictionAPI(any(), anyDouble())).thenReturn(
                     MLPredictionResponse.builder()
                             .predictedLoad(100.0).errorProbability(1.0).confidenceScore(0.85).build());
+            when(cognitiveStateRepository.findRecentBySessionId(any(UUID.class), anyInt()))
+                    .thenReturn(List.of());
             when(cognitiveStateRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             double load = cogLoadService.computeCognitiveLoad(frame.getId());
@@ -404,6 +407,8 @@ class SystemMustNotDoTest {
             when(mlInferenceService.callPredictionAPI(any(), anyDouble())).thenReturn(
                     MLPredictionResponse.builder()
                             .predictedLoad(0.0).errorProbability(0.0).confidenceScore(0.85).build());
+            when(cognitiveStateRepository.findRecentBySessionId(any(UUID.class), anyInt()))
+                    .thenReturn(List.of());
             when(cognitiveStateRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             double load = cogLoadService.computeCognitiveLoad(frame.getId());

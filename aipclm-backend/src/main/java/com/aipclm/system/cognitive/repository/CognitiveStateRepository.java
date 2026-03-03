@@ -30,4 +30,17 @@ public interface CognitiveStateRepository extends JpaRepository<CognitiveState, 
             ORDER BY c.timestamp ASC
             """)
     List<CognitiveState> findAllBySessionIdOrderByTimestampAsc(@Param("sessionId") UUID sessionId);
+
+    /**
+     * Returns the most recent N cognitive states for a session (ordered oldest-first).
+     * Used for EMA smoothing and fatigue trend slope computation.
+     */
+    @Query("""
+            SELECT c FROM CognitiveState c
+            WHERE c.telemetryFrame.flightSession.id = :sessionId
+            ORDER BY c.timestamp DESC
+            LIMIT :limit
+            """)
+    List<CognitiveState> findRecentBySessionId(@Param("sessionId") UUID sessionId,
+                                                @Param("limit") int limit);
 }

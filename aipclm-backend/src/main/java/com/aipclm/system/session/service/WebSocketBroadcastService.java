@@ -149,6 +149,7 @@ public class WebSocketBroadcastService {
                         .confidenceScore(cogState.getConfidenceScore())
                         .errorProbability(cogState.getErrorProbability())
                         .fatigueTrendSlope(cogState.getFatigueTrendSlope())
+                        .swissCheeseAlignmentScore(cogState.getSwissCheeseAlignmentScore())
                         .riskLevel(risk != null ? risk.getRiskLevel().name() : "UNKNOWN")
                         .build() : null)
                 .recommendations(recs.stream()
@@ -169,6 +170,7 @@ public class WebSocketBroadcastService {
                 .confidenceScore(s.getConfidenceScore())
                 .errorProbability(s.getErrorProbability())
                 .fatigueTrendSlope(s.getFatigueTrendSlope())
+                .swissCheeseAlignmentScore(s.getSwissCheeseAlignmentScore())
                 .riskLevel(risk != null ? risk.getRiskLevel().name() : "UNKNOWN")
                 .build();
     }
@@ -214,6 +216,7 @@ public class WebSocketBroadcastService {
         private double confidenceScore;
         private double errorProbability;
         private double fatigueTrendSlope;
+        private double swissCheeseAlignmentScore;
         private String riskLevel;
     }
 
@@ -232,6 +235,7 @@ public class WebSocketBroadcastService {
         private double confidenceScore;
         private double errorProbability;
         private double fatigueTrendSlope;
+        private double swissCheeseAlignmentScore;
         private String riskLevel;
     }
 

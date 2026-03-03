@@ -51,7 +51,7 @@ class MLInferenceServiceTest {
             return null;
         });
 
-        service = new MLInferenceService(mockBuilder);
+        service = new MLInferenceService(mockBuilder, "http://localhost:8001", 5000L);
     }
 
     @SuppressWarnings("unchecked")

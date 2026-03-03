@@ -65,6 +65,11 @@ export const getScenario = (sessionId) =>
 export const updateScenario = (sessionId, data) =>
   api.put(`/api/scenario/${sessionId}`, data).then((res) => res.data);
 
+/* ─── Explainability Endpoint ─── */
+
+export const getExplainability = (sessionId) =>
+  api.get(`/api/session/${sessionId}/explainability`).then((res) => res.data);
+
 /* ─── Simulation Endpoints ─── */
 
 export const startSession = (profileType = 'NOVICE') =>

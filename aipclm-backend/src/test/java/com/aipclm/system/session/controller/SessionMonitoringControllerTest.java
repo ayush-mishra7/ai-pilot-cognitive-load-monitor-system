@@ -3,6 +3,7 @@ package com.aipclm.system.session.controller;
 import com.aipclm.system.TestFixtures;
 import com.aipclm.system.cognitive.model.CognitiveState;
 import com.aipclm.system.cognitive.repository.CognitiveStateRepository;
+import com.aipclm.system.cognitive.service.MLInferenceService;
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.recommendation.model.AIRecommendation;
 import com.aipclm.system.recommendation.model.RecommendationType;
@@ -43,6 +44,7 @@ class SessionMonitoringControllerTest {
     @Mock private CognitiveStateRepository cognitiveStateRepository;
     @Mock private RiskAssessmentRepository riskAssessmentRepository;
     @Mock private AIRecommendationRepository recommendationRepository;
+    @Mock private MLInferenceService mlInferenceService;
 
     @InjectMocks private SessionMonitoringController controller;
 

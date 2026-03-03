@@ -22,7 +22,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Tests-115%20Passed-brightgreen?style=flat-square&logo=junit5&logoColor=white" alt="115 Tests Passed"/>
   <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square&logo=github-actions&logoColor=white" alt="Build Passing"/>
-  <img src="https://img.shields.io/badge/Phase-2%20Complete-blueviolet?style=flat-square" alt="Phase 2"/>
+  <img src="https://img.shields.io/badge/Phase-3%20Complete-blueviolet?style=flat-square" alt="Phase 3"/>
 </p>
 
 ---
@@ -52,7 +52,8 @@
 - **JWT-secured REST API** with role-based access (Pilot / ATC)
 - **Configurable flight scenarios** (weather, emergency, terrain, visibility) with NORMAL / MODERATE / EXTREME presets
 - **6-phase flight simulation** generating deterministic telemetry across TAKEOFF → CRUISE → LANDING
-- **Expert + ML hybrid cognitive load** computation with confidence-gated fusion
+- **Expert + ML hybrid cognitive load** computation with confidence-weighted fusion, EMA smoothing, and fatigue trend analysis
+- **Trained GradientBoosting model** (R²=0.981, MAE=2.13) with SHAP explainability and dynamic confidence scoring
 - **Swiss Cheese multi-barrier risk assessment** with hysteresis-based escalation
 - **AI-driven recommendations** including scenario-aware emergency procedures (SQUAWK 7700, DIVERT, DELAY TAKEOFF)
 
@@ -111,7 +112,9 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 | 🎮 **Scenario Engine** | 9-axis flight scenario configuration (weather, emergency, terrain, visibility, runway, time-of-day, traffic, failures, fatigue) with 3 quick presets |
 | 🛩️ **6-Phase Flight Simulation** | Deterministic telemetry generation with scenario-aware modifiers across TAKEOFF → CLIMB → CRUISE → DESCENT → APPROACH → LANDING |
 | 🧮 **Expert + ML Hybrid Cognitive Load** | Weighted expert model (70%) blended with ML predictions (30%) using confidence-gated fusion |
-| 🤖 **ML Inference Service** | FastAPI microservice with 3-second timeout and automatic fallback (confidence=0.5) on failure |
+| 🤖 **Trained ML Model** | GradientBoosting (500 trees, R²=0.981) with dynamic confidence, SHAP explainability, and hot-reload |
+| 🧠 **SHAP Explainability** | TreeExplainer feature contributions for every prediction — visualized as cockpit SHAP driver bars |
+| 📊 **EMA + Fatigue Trend** | Exponential Moving Average smoothing (α=0.3) and OLS fatigue slope over 10-frame window |
 | 🔴 **4-Level Risk Classification** | LOW → MODERATE → HIGH → CRITICAL with hysteresis thresholds to prevent oscillation |
 | 🧀 **Swiss Cheese Safety Model** | 4-barrier breach detection (fatigue, errors, turbulence, physiological stress) inspired by James Reason's model |
 | 💡 **12 Recommendation Types** | 7 baseline + 5 scenario-aware (SQUAWK_7700, DELAY_TAKEOFF, DIVERT_TO_ALTERNATE, ENGAGE_AUTOPILOT, REDUCE_SPEED) |
@@ -120,7 +123,8 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 | 🗼 **ATC Radar View** | Animated radar with risk-colored blips, flight strip panel, WebSocket auto-refresh |
 | 🔌 **WebSocket Real-Time Streaming** | STOMP over SockJS replacing HTTP polling — per-session topic channels with auto-reconnect, exponential back-off, and REST fallback for initial hydration |
 | ⚛️ **Atomic Pipeline** | 5-stage @Transactional pipeline with full rollback on any stage failure |
-| 🔄 **EMA Smoothing** | Exponential Moving Average (α=0.3) over last 5 frames for stable load tracking |
+| 🔄 **Confidence-Weighted Fusion** | `fused = conf × ML + (1−conf) × expert` — higher ML confidence → more weight to trained model |
+| 📈 **Swiss Cheese Alignment** | 4-barrier breach tracking (load>70, fatigue>60, errors>2, turbulence>0.05) with real-time sparkline |
 | 🛡️ **Duplicate Frame Guard** | Prevents duplicate telemetry frames on concurrent scheduler ticks |
 
 ---
@@ -166,7 +170,10 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 │  ┌──────────────────┐    ┌──────────▼──────────┐                          │
 │  │  ML Inference Svc │    │    PostgreSQL 18    │                          │
 │  │  (FastAPI :8001)  │    │    (aipclm_db)      │                          │
-│  │  /predict /health │    └─────────────────────┘                          │
+│  │  GradientBoosting │    └─────────────────────┘                          │
+│  │  SHAP Explainer   │                                                     │
+│  │  /predict /explain│                                                     │
+│  │  /model/info      │                                                     │
 │  └──────────────────┘                                                     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -183,8 +190,10 @@ Stage 1 ─ Telemetry Generation
    │  scenario-aware modifiers (weather, emergency, visibility multipliers)
    ▼
 Stage 2 ─ Cognitive Load Computation
-   │  CognitiveLoadService computes expert load (weighted sum of 12 factors)
-   │  and fuses it with ML predictions using confidence-gated blending
+   │  CognitiveLoadService computes expert load (weighted sum of 12 factors),
+   │  calls trained GradientBoosting model for ML prediction, fuses them via
+   │  confidence-weighted blending, applies EMA smoothing (α=0.3), computes
+   │  fatigue trend slope (OLS on 10-frame window), and Swiss Cheese alignment
    ▼
 Stage 3 ─ Risk Assessment
    │  RiskEngineService classifies risk (LOW/MODERATE/HIGH/CRITICAL)
@@ -271,8 +280,11 @@ Stage 5 ─ Persist & Commit
 |-----------|---------|
 | ![Python](https://img.shields.io/badge/Python_3.11+-3776AB?style=flat-square&logo=python&logoColor=white) | ML service language |
 | ![FastAPI](https://img.shields.io/badge/FastAPI_0.115-009688?style=flat-square&logo=fastapi&logoColor=white) | REST API framework |
-| ![scikit-learn](https://img.shields.io/badge/scikit--learn_1.6-F7931E?style=flat-square&logo=scikitlearn&logoColor=white) | ML library (future trained model) |
+| ![scikit-learn](https://img.shields.io/badge/scikit--learn_1.6-F7931E?style=flat-square&logo=scikitlearn&logoColor=white) | GradientBoosting model training & inference |
+| ![SHAP](https://img.shields.io/badge/SHAP_0.46-FF6F00?style=flat-square) | TreeExplainer feature attribution |
 | ![NumPy](https://img.shields.io/badge/NumPy_2.2-013243?style=flat-square&logo=numpy&logoColor=white) | Numerical operations |
+| ![pandas](https://img.shields.io/badge/pandas_2.2-150458?style=flat-square&logo=pandas&logoColor=white) | Dataset handling & feature engineering |
+| ![joblib](https://img.shields.io/badge/joblib_1.4-4B8BBE?style=flat-square) | Model serialization & versioning |
 | ![Pydantic](https://img.shields.io/badge/Pydantic_2.10-E92063?style=flat-square&logo=pydantic&logoColor=white) | Request validation |
 | ![Uvicorn](https://img.shields.io/badge/Uvicorn-499848?style=flat-square&logo=gunicorn&logoColor=white) | ASGI server |
 
@@ -443,8 +455,17 @@ ai-pclm/
 │           └── websocket.js                         # Phase 2: STOMP/SockJS client
 │
 └── aipclm-ml-service/                               # Python ML Microservice
-    ├── main.py                                      # FastAPI with /predict & /health
-    └── requirements.txt
+    ├── main.py                                      # FastAPI with /predict, /explain, /model/info
+    ├── requirements.txt
+    ├── models/                                      # Phase 3: Trained model artifacts
+    │   ├── cognitive_load_model_v1.0.0.joblib       # GBM model (500 trees, R²=0.981)
+    │   ├── cognitive_load_model_latest.joblib        # Latest version symlink
+    │   └── model_metadata.json                      # Training metrics & feature list
+    └── training/                                    # Phase 3: Model training pipeline
+        ├── generate_dataset.py                      # 50K synthetic sample generator
+        ├── train_model.py                           # GradientBoosting dual-model trainer
+        └── data/
+            └── cognitive_load_dataset.csv           # Generated training dataset
 ```
 
 ---
@@ -542,6 +563,7 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | `GET` | `/api/session/{id}/cognitive/history` | All cognitive frames |
 | `GET` | `/api/session/{id}/risk/history` | All risk frames |
 | `GET` | `/api/session/{id}/recommendations/latest` | Latest recommendations |
+| `GET` | `/api/session/{id}/explainability` | SHAP feature contributions for latest frame |
 
 ### Scenarios (`/api/scenario`) — *Requires JWT*
 
@@ -563,7 +585,10 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
-| `POST` | `/predict` | Predict cognitive load from telemetry features |
+| `POST` | `/predict` | Predict cognitive load from telemetry features (trained GBM model) |
+| `POST` | `/explain` | SHAP feature contributions for a prediction |
+| `GET` | `/model/info` | Model metadata (version, features, metrics) |
+| `POST` | `/model/reload` | Hot-reload latest model from disk |
 
 ---
 

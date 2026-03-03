@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "trained_at": "2026-03-03T16:35:38.467335Z",
+  "training_duration_seconds": 116.38,
+  "data_hash": "24a239050c7410760f60fa0ed8606ee8",
+  "n_samples": 49998,
+  "feature_names": [
+    "reaction_time_ms",
+    "turbulence_level",
+    "weather_severity",
+    "stress_index",
+    "fatigue_index",
+    "heart_rate",
+    "blink_rate",
+    "control_jitter_index",
+    "checklist_delay_seconds",
+    "task_switch_rate",
+    "error_count",
+    "phase_of_flight",
+    "altitude",
+    "airspeed",
+    "vertical_speed"
+  ],
+  "phase_encoder_classes": [
+    "APPROACH",
+    "CLIMB",
+    "CRUISE",
+    "DESCENT",
+    "LANDING",
+    "TAKEOFF"
+  ],
+  "load_metrics": {
+    "train_mae": 1.8019142501296233,
+    "train_rmse": 2.270471797776453,
+    "train_r2": 0.98657557673146,
+    "test_mae": 2.1324371457447358,
+    "test_rmse": 2.6742543482054164,
+    "test_r2": 0.9809868441842526
+  },
+  "error_metrics": {
+    "test_mae": 0.029563750436010776,
+    "test_rmse": 0.04136201988111938,
+    "test_r2": 0.9806211571212949
+  },
+  "residual_stats": {
+    "mean": 1.8019142501296233,
+    "std": 1.381357021076751,
+    "p95": 4.480283962382273
+  },
+  "load_feature_importances": {
+    "reaction_time_ms": 0.23154475819697223,
+    "fatigue_index": 0.19886975132800716,
+    "stress_index": 0.09937338293375192,
+    "control_jitter_index": 0.09631764836963894,
+    "task_switch_rate": 0.09496936423600326,
+    "turbulence_level": 0.07202452236703792,
+    "weather_severity": 0.06370193233791535,
+    "error_count": 0.05720545733599585,
+    "checklist_delay_seconds": 0.03687266913505378,
+    "heart_rate": 0.027283937154497298,
+    "blink_rate": 0.00784382165465471,
+    "vertical_speed": 0.0061597005151850575,
+    "airspeed": 0.003981733917055633,
+    "altitude": 0.0027292798207743585,
+    "phase_of_flight": 0.0011220406974563819
+  },
+  "error_feature_importances": {
+    "fatigue_index": 0.25537641665222677,
+    "reaction_time_ms": 0.20924432770926402,
+    "task_switch_rate": 0.09545018375852399,
+    "control_jitter_index": 0.09295940833956956,
+    "stress_index": 0.0901726428353164,
+    "weather_severity": 0.061435006472551686,
+    "error_count": 0.049064524441454024,
+    "checklist_delay_seconds": 0.04787103822737416,
+    "turbulence_level": 0.042761697611051766,
+    "heart_rate": 0.03408211669256338,
+    "vertical_speed": 0.006954880012316363,
+    "blink_rate": 0.006898482078707079,
+    "airspeed": 0.003385845996111057,
+    "altitude": 0.0033757587325035127,
+    "phase_of_flight": 0.0009676704404661754
+  }
+}

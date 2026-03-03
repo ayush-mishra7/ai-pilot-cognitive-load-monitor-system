@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCognitiveHistory, getRiskHistory } from '../services/api';
+import { getCognitiveHistory, getRiskHistory, getExplainability } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import analyticsBg from '../assets/analytics-page.png';
@@ -27,6 +27,7 @@ export default function AnalyticsPage() {
   const { setSession } = useSession();
   const [cogHistory, setCogHistory] = useState([]);
   const [riskHistory, setRiskHistory] = useState([]);
+  const [shapData, setShapData] = useState(null);
   const [status, setStatus] = useState('loading');   // loading | live | waiting | error
   const pollRef = useRef(null);
 
@@ -51,6 +52,10 @@ export default function AnalyticsPage() {
       setRiskHistory(riskArr);
       // If both arrays are empty, session exists but has no data yet
       setStatus(cogArr.length === 0 && riskArr.length === 0 ? 'waiting' : 'live');
+      // Fetch SHAP explainability
+      if (cogArr.length > 0) {
+        getExplainability(sessionId).then(setShapData).catch(() => {});
+      }
     } catch (err) {
       if (err?.response?.status === 404) {
         setStatus('waiting');
@@ -72,9 +77,16 @@ export default function AnalyticsPage() {
   useWebSocket(
     validSession ? `/topic/session/${sessionId}/cognitive-history` : null,
     useCallback((entry) => {
-      setCogHistory((prev) => [...prev, entry]);
+      setCogHistory((prev) => {
+        const next = [...prev, entry];
+        // Refresh SHAP every 5th frame to avoid flooding
+        if (next.length % 5 === 0) {
+          getExplainability(sessionId).then(setShapData).catch(() => {});
+        }
+        return next;
+      });
       setStatus('live');
-    }, [])
+    }, [sessionId])
   );
 
   useWebSocket(
@@ -93,6 +105,7 @@ export default function AnalyticsPage() {
   const fatigueData   = cogHistory.map((c) => c.fatigueTrendSlope ?? 0);
   const riskLevels    = riskHistory.map((r) => RISK_ORDER[r.riskLevel] ?? 0);
   const confidences   = cogHistory.map((c) => (c.confidenceScore ?? 0) * 100);
+  const swissCheese   = cogHistory.map((c) => (c.swissCheeseAlignmentScore ?? 0) * 100);
 
   /* ── Risk distribution ── */
   const riskCounts = riskHistory.reduce(
@@ -217,6 +230,37 @@ export default function AnalyticsPage() {
                 {riskCounts.CRITICAL || 0}
               </span>
             </div>
+
+            {/* SHAP Feature Drivers */}
+            {shapData?.available && shapData.featureContributions?.length > 0 && (
+              <div style={{ marginTop: '4%' }}>
+                <div className="digi-label" style={{ fontSize: '0.9em', marginBottom: '0.3em' }}>SHAP DRIVERS</div>
+                {shapData.featureContributions.slice(0, 4).map((fc) => {
+                  const maxAbs = Math.max(...shapData.featureContributions.map((f) => Math.abs(f.shapValue)), 0.01);
+                  const pct = Math.min((Math.abs(fc.shapValue) / maxAbs) * 100, 100);
+                  const clr = fc.shapValue > 0 ? '#FF6B35' : '#00C2FF';
+                  return (
+                    <div key={fc.feature} style={{ marginBottom: '0.25em' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7em' }}>
+                        <span className="digi-label" style={{ fontSize: '1em', textTransform: 'uppercase' }}>
+                          {fc.feature.replace(/_/g, ' ').slice(0, 14)}
+                        </span>
+                        <span className="digi" style={{ fontSize: '1em', color: clr }}>
+                          {fc.shapValue > 0 ? '+' : ''}{fc.shapValue.toFixed(2)}
+                        </span>
+                      </div>
+                      <div style={{ height: '0.25em', background: 'rgba(0,255,65,0.04)', borderRadius: '2px' }}>
+                        <div style={{
+                          height: '100%', borderRadius: '2px', background: clr,
+                          width: `${pct}%`, transition: 'width 0.4s ease-out',
+                          boxShadow: `0 0 4px ${clr}44`,
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -226,7 +270,7 @@ export default function AnalyticsPage() {
 
             {/* Error Probability */}
             <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>ERROR PROBABILITY</div>
-            <Spark data={errorProbs} color="#DC2626" height={32} />
+            <Spark data={errorProbs} color="#DC2626" height={28} />
             <div style={{ display: 'flex', gap: '10%', margin: '2% 0 5%' }}>
               <MiniStat label="CURRENT" value={errorProbs.length ? `${errorProbs[errorProbs.length - 1].toFixed(1)}%` : '—'} color="#DC2626" />
               <MiniStat label="PEAK" value={errorProbs.length ? `${Math.max(...errorProbs).toFixed(1)}%` : '—'} color="#DC2626" />
@@ -234,7 +278,7 @@ export default function AnalyticsPage() {
 
             {/* Fatigue Slope */}
             <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>FATIGUE SLOPE</div>
-            <Spark data={fatigueData} color="#F59E0B" height={32} />
+            <Spark data={fatigueData} color="#F59E0B" height={28} />
             <div style={{ display: 'flex', gap: '10%', margin: '2% 0 5%' }}>
               <MiniStat label="LATEST" value={fatigueData.length ? fatigueData[fatigueData.length - 1].toFixed(4) : '—'} color="#F59E0B" />
               <MiniStat label="MAX" value={fatigueData.length ? Math.max(...fatigueData).toFixed(4) : '—'} color="#F59E0B" />
@@ -242,11 +286,19 @@ export default function AnalyticsPage() {
 
             {/* ML Confidence */}
             <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>ML CONFIDENCE</div>
-            <Spark data={confidences} color="#00C2FF" height={32} />
+            <Spark data={confidences} color="#00C2FF" height={28} />
             <div style={{ display: 'flex', gap: '8%', marginTop: '2%' }}>
               <MiniStat label="CURRENT" value={confidences.length ? `${confidences[confidences.length - 1].toFixed(1)}%` : '—'} color="#00C2FF" />
               <MiniStat label="MIN" value={confidences.length ? `${Math.min(...confidences).toFixed(1)}%` : '—'} color="#F59E0B" />
               <MiniStat label="AVG" value={`${avgConf}%`} color="#00C2FF" />
+            </div>
+
+            {/* Swiss Cheese Alignment */}
+            <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em', marginTop: '4%' }}>SWISS CHEESE</div>
+            <Spark data={swissCheese} color="#E879F9" height={28} />
+            <div style={{ display: 'flex', gap: '10%', marginTop: '2%' }}>
+              <MiniStat label="CURRENT" value={swissCheese.length ? `${swissCheese[swissCheese.length - 1].toFixed(0)}%` : '—'} color="#E879F9" />
+              <MiniStat label="MAX" value={swissCheese.length ? `${Math.max(...swissCheese).toFixed(0)}%` : '—'} color="#FF3333" />
             </div>
           </div>
         </div>

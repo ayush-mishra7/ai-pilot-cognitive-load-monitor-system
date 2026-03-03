@@ -18,11 +18,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +45,9 @@ class CognitiveLoadServiceTest {
         pilot = TestFixtures.pilotNovice();
         session = TestFixtures.runningSession(pilot);
         cruiseFrame = TestFixtures.cruiseFrame(session, 1);
+        // Stub findRecentBySessionId to return empty list (no EMA/fatigue history)
+        lenient().when(cognitiveStateRepository.findRecentBySessionId(any(UUID.class), anyInt()))
+                .thenReturn(List.of());
     }
 
     private MLPredictionResponse normalMlResponse(double expertLoad) {

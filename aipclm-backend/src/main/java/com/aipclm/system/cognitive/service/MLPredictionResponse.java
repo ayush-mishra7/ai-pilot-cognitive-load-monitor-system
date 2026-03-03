@@ -20,4 +20,8 @@ public class MLPredictionResponse {
 
     @JsonProperty("confidence_score")
     private double confidenceScore;
+
+    @JsonProperty("model_version")
+    @Builder.Default
+    private String modelVersion = "unknown";
 }

@@ -2,6 +2,8 @@ package com.aipclm.system.session.controller;
 
 import com.aipclm.system.cognitive.model.CognitiveState;
 import com.aipclm.system.cognitive.repository.CognitiveStateRepository;
+import com.aipclm.system.cognitive.service.MLExplainResponse;
+import com.aipclm.system.cognitive.service.MLInferenceService;
 import com.aipclm.system.recommendation.model.AIRecommendation;
 import com.aipclm.system.recommendation.repository.AIRecommendationRepository;
 import com.aipclm.system.risk.model.RiskAssessment;
@@ -40,6 +42,7 @@ public class SessionMonitoringController {
     private final AIRecommendationRepository recommendationRepository;
     private final EntityManager entityManager;
     private final WebSocketBroadcastService webSocketBroadcastService;
+    private final MLInferenceService mlInferenceService;
 
     /* ─── Health check ─── */
     @GetMapping("/health")
@@ -189,6 +192,7 @@ public class SessionMonitoringController {
                     .confidenceScore(s.getConfidenceScore())
                     .errorProbability(s.getErrorProbability())
                     .fatigueTrendSlope(s.getFatigueTrendSlope())
+                    .swissCheeseAlignmentScore(s.getSwissCheeseAlignmentScore())
                     .riskLevel(risk != null ? risk.getRiskLevel().name() : "UNKNOWN")
                     .build();
         }).collect(Collectors.toList());
@@ -217,6 +221,46 @@ public class SessionMonitoringController {
         return ResponseEntity.ok(dtos);
     }
 
+    /* ─── SHAP Explainability for latest frame ─── */
+    @GetMapping("/{sessionId}/explainability")
+    public ResponseEntity<ExplainabilityDto> getExplainability(@PathVariable UUID sessionId) {
+        FlightSession session = flightSessionRepository.findById(sessionId).orElse(null);
+        if (session == null) return ResponseEntity.notFound().build();
+
+        TelemetryFrame latestFrame = telemetryFrameRepository
+                .findTopByFlightSessionIdOrderByFrameNumberDesc(sessionId).orElse(null);
+        if (latestFrame == null) return ResponseEntity.notFound().build();
+
+        CognitiveState cogState = cognitiveStateRepository
+                .findByTelemetryFrameId(latestFrame.getId()).orElse(null);
+        if (cogState == null) return ResponseEntity.notFound().build();
+
+        MLExplainResponse explain = mlInferenceService.callExplainAPI(latestFrame, cogState.getExpertComputedLoad());
+        if (explain == null) {
+            return ResponseEntity.ok(ExplainabilityDto.builder()
+                    .available(false)
+                    .predictedLoad(cogState.getMlPredictedLoad())
+                    .build());
+        }
+
+        List<FeatureContributionDto> contributions = explain.getFeatureContributions().stream()
+                .map(fc -> FeatureContributionDto.builder()
+                        .feature(fc.getFeature())
+                        .value(fc.getValue())
+                        .shapValue(fc.getShapValue())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ExplainabilityDto.builder()
+                .available(true)
+                .predictedLoad(explain.getPredictedLoad())
+                .baseValue(explain.getBaseValue())
+                .featureContributions(contributions)
+                .topPositiveDrivers(explain.getTopPositiveDrivers())
+                .topNegativeDrivers(explain.getTopNegativeDrivers())
+                .build());
+    }
+
     private TelemetryDto mapTelemetry(TelemetryFrame frame) {
         if (frame == null)
             return null;
@@ -241,6 +285,7 @@ public class SessionMonitoringController {
                 .confidenceScore(state.getConfidenceScore())
                 .errorProbability(state.getErrorProbability())
                 .fatigueTrendSlope(state.getFatigueTrendSlope())
+                .swissCheeseAlignmentScore(state.getSwissCheeseAlignmentScore())
                 .riskLevel(risk != null ? risk.getRiskLevel().name() : "UNKNOWN")
                 .build();
     }
@@ -289,6 +334,7 @@ public class SessionMonitoringController {
         private double confidenceScore;
         private double errorProbability;
         private double fatigueTrendSlope;
+        private double swissCheeseAlignmentScore;
         private String riskLevel;
     }
 
@@ -318,5 +364,28 @@ public class SessionMonitoringController {
         private boolean riskEscalated;
         private boolean swissCheeseTriggered;
         private Instant timestamp;
+    }
+
+    @Data
+    @Builder
+    public static class ExplainabilityDto {
+        private boolean available;
+        private double predictedLoad;
+        @Builder.Default
+        private double baseValue = 0.0;
+        @Builder.Default
+        private List<FeatureContributionDto> featureContributions = List.of();
+        @Builder.Default
+        private List<String> topPositiveDrivers = List.of();
+        @Builder.Default
+        private List<String> topNegativeDrivers = List.of();
+    }
+
+    @Data
+    @Builder
+    public static class FeatureContributionDto {
+        private String feature;
+        private double value;
+        private double shapValue;
     }
 }

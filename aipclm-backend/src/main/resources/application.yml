@@ -18,3 +18,8 @@ spring:
 jwt:
   secret: aipclm-super-secret-key-that-is-at-least-32-bytes-long-2026
   expiration-ms: 86400000   # 24 hours
+
+ml:
+  service:
+    url: http://localhost:8001
+    timeout-ms: 5000
