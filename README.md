@@ -58,17 +58,47 @@
 
 Built for **aviation safety researchers**, **human factors engineers**, and **cockpit design teams** who need a controlled environment to study cognitive load evolution during simulated flight missions.
 
+> [!IMPORTANT]
+> **Research & Simulation Platform** — AI-PCLM is a **proof-of-concept research system** built to demonstrate how real-time cognitive load monitoring, multi-barrier risk assessment, and AI-driven recommendations *could* work in an aviation context. The telemetry, biometrics, and cognitive load values are **simulated** using deterministic models, not sourced from live aircraft instruments or certified physiological sensors. This system is designed as a **foundation that can be integrated with real monitoring tools** — EEG headsets, eye trackers, certified avionics data buses (ARINC 429 / MIL-STD-1553), and wearable physiological sensors — to evolve into a production-grade cognitive load monitoring solution. In its current form, it serves as a research sandbox for studying cognitive workload patterns, validating risk assessment algorithms, and prototyping intervention strategies before deploying them in real cockpit environments.
+
 ---
 
 ## 📸 Screenshots
 
+### Landing Page
+*Hero section with system overview, feature highlights, and cockpit-themed UI built with Three.js animated backgrounds.*
 <p align="center">
-  <img src="aipclm-frontend/src/assets/landing-page.png" width="45%" alt="Landing Page"/>
-  <img src="aipclm-frontend/src/assets/home-page.png" width="45%" alt="Home Page"/>
+  <img src="assets/landing-page-ss.png" width="90%" alt="Landing Page — Hero section with animated cockpit background"/>
 </p>
+
+### Registration & Onboarding
+*Role-based registration (Pilot / ATC) with pilot profile selection — choosing a cognitive profile affects simulation stress multipliers.*
 <p align="center">
-  <img src="aipclm-frontend/src/assets/dashboard-page.png" width="45%" alt="Dashboard"/>
-  <img src="aipclm-frontend/src/assets/analytics-page.png" width="45%" alt="Analytics"/>
+  <img src="assets/signup-page-ss.png" width="90%" alt="Registration Page — Role selection and pilot profile configuration"/>
+</p>
+
+### Pilot Home — Session Management & Scenario Configuration
+*Create new monitoring sessions with configurable flight scenarios (weather, emergency, terrain, visibility). Quick presets (NORMAL / MODERATE / EXTREME) or fully custom 9-axis configuration.*
+<p align="center">
+  <img src="assets/home-page-ss.png" width="90%" alt="Home Page — New session creation with scenario configurator and session list"/>
+</p>
+
+### Real-Time Flight Analytics
+*Cognitive load sparkline trends, risk distribution breakdown, and ML performance metrics — updated every 3 seconds during active simulation.*
+<p align="center">
+  <img src="assets/flight-analytics-ss.png" width="90%" alt="Analytics Dashboard — Cognitive load trends, risk distribution, and ML performance"/>
+</p>
+
+### ATC Radar — Active Flight Detection
+*Air Traffic Control command center with animated radar display showing risk-colored blips for each active flight, auto-refreshing every 3 seconds.*
+<p align="center">
+  <img src="assets/atc-detecting-flight-ss.png" width="90%" alt="ATC Radar — Animated radar with risk-colored flight blips"/>
+</p>
+
+### ATC Flight Detail View
+*Detailed flight monitoring for ATC operators — telemetry, cognitive state, risk assessment, pilot biometrics, and AI recommendations in a single view.*
+<p align="center">
+  <img src="assets/atc-flight-details-ss.png" width="90%" alt="ATC Flight Detail — Telemetry, cognitive state, risk, and AI recommendations"/>
 </p>
 
 ---
