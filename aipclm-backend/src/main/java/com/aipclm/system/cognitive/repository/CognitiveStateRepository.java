@@ -23,4 +23,11 @@ public interface CognitiveStateRepository extends JpaRepository<CognitiveState, 
     List<CognitiveState> findTop5BySessionIdOrderByTimestampDesc(@Param("sessionId") UUID sessionId);
 
     Optional<CognitiveState> findByTelemetryFrameId(UUID telemetryFrameId);
+
+    @Query("""
+            SELECT c FROM CognitiveState c
+            WHERE c.telemetryFrame.flightSession.id = :sessionId
+            ORDER BY c.timestamp ASC
+            """)
+    List<CognitiveState> findAllBySessionIdOrderByTimestampAsc(@Param("sessionId") UUID sessionId);
 }

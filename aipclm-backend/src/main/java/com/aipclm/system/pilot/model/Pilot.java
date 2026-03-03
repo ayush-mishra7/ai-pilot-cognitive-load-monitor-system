@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -20,7 +21,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "pilots")
+@Table(name = "pilots", indexes = @Index(name = "idx_pilot_user_id", columnList = "userId"))
 @Getter
 @Setter
 @Builder
@@ -44,6 +45,10 @@ public class Pilot {
 
     @Column(nullable = false)
     private double baselineFatigueRate;
+
+    /** FK to users table — links this pilot profile to its login account */
+    @Column(unique = true)
+    private UUID userId;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

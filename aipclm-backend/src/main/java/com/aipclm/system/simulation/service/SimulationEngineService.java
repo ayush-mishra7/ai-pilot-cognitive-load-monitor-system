@@ -2,6 +2,8 @@ package com.aipclm.system.simulation.service;
 
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.pilot.repository.PilotRepository;
+import com.aipclm.system.scenario.model.*;
+import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
@@ -22,15 +24,18 @@ public class SimulationEngineService {
     private final FlightSessionRepository flightSessionRepository;
     private final PilotRepository pilotRepository;
     private final TelemetryFrameRepository telemetryFrameRepository;
+    private final FlightScenarioRepository scenarioRepository;
 
     private static final java.util.Random RANDOM = new java.util.Random(42); // Seeded for determinism
 
     public SimulationEngineService(FlightSessionRepository flightSessionRepository,
             PilotRepository pilotRepository,
-            TelemetryFrameRepository telemetryFrameRepository) {
+            TelemetryFrameRepository telemetryFrameRepository,
+            FlightScenarioRepository scenarioRepository) {
         this.flightSessionRepository = flightSessionRepository;
         this.pilotRepository = pilotRepository;
         this.telemetryFrameRepository = telemetryFrameRepository;
+        this.scenarioRepository = scenarioRepository;
     }
 
     @Transactional
@@ -48,6 +53,9 @@ public class SimulationEngineService {
 
         Pilot pilot = pilotRepository.findById(session.getPilot().getId())
                 .orElseThrow(() -> new IllegalStateException("Pilot not found for session"));
+
+        // Load scenario if one exists for this session (nullable — backwards compatible)
+        FlightScenario scenario = scenarioRepository.findByFlightSessionId(sessionId).orElse(null);
 
         int nextFrameNumber = session.getTotalFramesGenerated() + 1;
 
@@ -121,12 +129,152 @@ public class SimulationEngineService {
         double weatherSeverity = 0.2; // Static for now
         boolean autopilotEngaged = phaseOfFlight == PhaseOfFlight.CRUISE || phaseOfFlight == PhaseOfFlight.CLIMB;
 
+        /* ═══════════════════════════════════════════════════════
+         *  SCENARIO MODIFIERS — applied after baseline + noise
+         * ═══════════════════════════════════════════════════════ */
+        double scenarioStressBonus = 0.0;
+        double scenarioFatigueMultiplier = 1.0;
+
+        if (scenario != null) {
+            // ── Weather → turbulence multiplier ──
+            double turbulenceMultiplier = switch (scenario.getWeatherCondition()) {
+                case THUNDERSTORM -> 3.0;
+                case ICE          -> 2.5;
+                case SNOW         -> 2.0;
+                case RAIN         -> 1.5;
+                case OVERCAST     -> 1.2;
+                case FOG          -> 1.0;   // no extra turbulence but visibility penalty
+                case CLOUDY       -> 1.1;
+                case CLEAR        -> 1.0;
+            };
+            turbulenceLevel = Math.min(1.0, turbulenceLevel * turbulenceMultiplier);
+
+            // ── Weather → weatherSeverity (replaces static 0.2) ──
+            weatherSeverity = switch (scenario.getWeatherCondition()) {
+                case CLEAR -> 0.05;
+                case CLOUDY -> 0.15;
+                case OVERCAST -> 0.25;
+                case RAIN -> 0.45;
+                case FOG -> 0.40;
+                case SNOW -> 0.55;
+                case ICE -> 0.70;
+                case THUNDERSTORM -> 0.90;
+            };
+
+            // ── Visibility → stress bonus ──
+            scenarioStressBonus += switch (scenario.getVisibility()) {
+                case UNLIMITED -> 0.0;
+                case GOOD      -> 2.0;
+                case MODERATE  -> 8.0;
+                case LOW       -> 20.0;
+                case VERY_LOW  -> 30.0;
+                case ZERO      -> 40.0;
+            };
+
+            // ── Time of Day → stress bonus & fatigue ──
+            if (scenario.getTimeOfDay() == TimeOfDay.NIGHT) {
+                scenarioStressBonus += 15.0;
+                scenarioFatigueMultiplier *= 1.15;
+            } else if (scenario.getTimeOfDay() == TimeOfDay.DUSK) {
+                scenarioStressBonus += 8.0;
+                scenarioFatigueMultiplier *= 1.05;
+            }
+
+            // ── Wind → heading deviation & roll ──
+            double windEffect = scenario.getWindSpeedKnots() / 80.0; // normalize 0–1
+            heading = (heading + scenario.getCrosswindComponent() * 0.3 * RANDOM.nextGaussian()) % 360;
+            roll += scenario.getCrosswindComponent() * 0.1 * RANDOM.nextGaussian();
+            yawRate += windEffect * RANDOM.nextGaussian() * 1.5;
+
+            // ── Terrain → turbulence + altitude floor ──
+            if (scenario.getTerrainType() == TerrainType.MOUNTAINOUS) {
+                turbulenceLevel = Math.min(1.0, turbulenceLevel + 0.15);
+                altitude = Math.max(altitude, scenario.getAirportElevationFt() + 1000);
+            } else if (scenario.getTerrainType() == TerrainType.URBAN) {
+                turbulenceLevel = Math.min(1.0, turbulenceLevel + 0.05);
+            }
+
+            // ── Runway → landing difficulty (affects approach/landing) ──
+            if ((phaseOfFlight == PhaseOfFlight.APPROACH || phaseOfFlight == PhaseOfFlight.LANDING)
+                    && scenario.getRunwayCondition() != RunwayCondition.DRY) {
+                double runwayPenalty = switch (scenario.getRunwayCondition()) {
+                    case WET -> 0.10;
+                    case CONTAMINATED -> 0.20;
+                    case ICY -> 0.30;
+                    case FLOODED -> 0.35;
+                    default -> 0.0;
+                };
+                scenarioStressBonus += runwayPenalty * 50;
+                airspeed += runwayPenalty * 10; // harder to slow down
+            }
+
+            // ── Mission type → base stress ──
+            scenarioStressBonus += switch (scenario.getMissionType()) {
+                case ROUTINE   -> 0.0;
+                case TRAINING  -> 5.0;
+                case CARGO     -> 2.0;
+                case VIP       -> 8.0;
+                case MEDICAL_EVAC -> 15.0;
+                case COMBAT    -> 25.0;
+            };
+
+            // ── Emergency → inject anomalies ──
+            if (scenario.getEmergencyType() != EmergencyType.NONE) {
+                scenarioStressBonus += 30.0;
+                scenarioFatigueMultiplier *= 1.3;
+
+                switch (scenario.getEmergencyType()) {
+                    case ENGINE_FAILURE -> {
+                        airspeed *= 0.75;
+                        verticalSpeed -= 500;
+                    }
+                    case HYDRAULIC_LOSS -> {
+                        roll += RANDOM.nextGaussian() * 5;
+                        pitch += RANDOM.nextGaussian() * 3;
+                    }
+                    case FIRE, FUEL_LEAK -> {
+                        scenarioStressBonus += 20.0;
+                    }
+                    case CABIN_DEPRESSURIZATION -> {
+                        altitude = Math.min(altitude, 10000); // emergency descent
+                        verticalSpeed = Math.min(verticalSpeed, -3000);
+                    }
+                    case BIRD_STRIKE -> {
+                        turbulenceLevel = Math.min(1.0, turbulenceLevel + 0.25);
+                    }
+                    case ELECTRICAL_FAILURE -> {
+                        autopilotEngaged = false;
+                        scenarioStressBonus += 15.0;
+                    }
+                    case GEAR_MALFUNCTION -> {
+                        if (phaseOfFlight == PhaseOfFlight.LANDING) {
+                            scenarioStressBonus += 35.0;
+                        }
+                    }
+                    default -> { /* NONE handled above */ }
+                }
+            }
+
+            // ── High altitude airport → thinner air = performance penalty ──
+            if (scenario.getAirportElevationFt() > 3000) {
+                double altPenalty = (scenario.getAirportElevationFt() - 3000) / 10000.0;
+                airspeed *= (1.0 - altPenalty * 0.1);
+                verticalSpeed *= (1.0 - altPenalty * 0.05);
+            }
+
+            log.debug("Scenario modifiers applied: stressBonus={}, fatigueMultiplier={}, turbulence={}, weather={}",
+                    String.format("%.1f", scenarioStressBonus),
+                    String.format("%.2f", scenarioFatigueMultiplier),
+                    String.format("%.3f", turbulenceLevel),
+                    scenario.getWeatherCondition());
+        }
+
         // Pilot specific logic
         int baseReactionTimeMs = 300;
         double baseControlJitter = 0.1;
         double baseChecklistDelay = 2.0;
-        double currentStress = pilot.getBaselineStressSensitivity() + (turbulenceLevel * 20);
-        double fatigueAccumulationRate = pilot.getBaselineFatigueRate();
+        double currentStress = pilot.getBaselineStressSensitivity() + (turbulenceLevel * 20) + scenarioStressBonus;
+        double fatigueAccumulationRate = pilot.getBaselineFatigueRate() * scenarioFatigueMultiplier;
 
         switch (pilot.getProfileType()) {
             case NOVICE:
@@ -164,7 +312,10 @@ public class SimulationEngineService {
 
         double controlInputFrequency = autopilotEngaged ? 0.5 : 2.0 + RANDOM.nextGaussian() * 0.5;
         double taskSwitchRate = 1.0 + Math.abs(RANDOM.nextGaussian() * 0.2);
-        int errorCount = RANDOM.nextDouble() > 0.95 ? 1 : 0; // Occasional minor error
+        // Error rate increases under scenario stress
+        double errorThreshold = (scenario != null && scenario.getEmergencyType() != EmergencyType.NONE) ? 0.80
+                : (scenario != null && scenario.getDifficultyPreset() == DifficultyPreset.EXTREME) ? 0.85 : 0.95;
+        int errorCount = RANDOM.nextDouble() > errorThreshold ? 1 : 0;
         double instrumentScanVariance = autopilotEngaged ? 0.8 : 0.4 + RANDOM.nextGaussian() * 0.1;
 
         // Deviations

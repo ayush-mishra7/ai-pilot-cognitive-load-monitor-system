@@ -127,6 +127,15 @@ public class SessionTestController {
         @PostMapping("/{sessionId}/stop-schedule")
         public ResponseEntity<String> stopSchedule(@PathVariable UUID sessionId) {
                 simulationSchedulerService.stopSession(sessionId);
+
+                // Mark session as COMPLETED so it no longer appears as "active"
+                FlightSession session = flightSessionRepository.findById(sessionId).orElse(null);
+                if (session != null && session.getStatus() == FlightSessionStatus.RUNNING) {
+                        session.setStatus(FlightSessionStatus.COMPLETED);
+                        session.setSessionEndTime(Instant.now());
+                        flightSessionRepository.save(session);
+                }
+
                 return ResponseEntity.ok("Scheduler stopped for session " + sessionId);
         }
 

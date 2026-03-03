@@ -5,22 +5,24 @@
 <h1 align="center">AI-Pilot Cognitive Load Monitor System</h1>
 
 <p align="center">
-  <em>Real-time simulation and monitoring of pilot cognitive workload using expert systems, ML inference, and multi-barrier risk assessment.</em>
+  <em>Full-stack real-time simulation and monitoring of pilot cognitive workload with a cockpit-grade React UI, JWT authentication, scenario-driven flight engine, expert + ML cognitive load fusion, Swiss Cheese risk model, and AI-powered recommendations.</em>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java 17"/>
   <img src="https://img.shields.io/badge/Spring%20Boot-3.3.4-6DB33F?style=flat-square&logo=springboot&logoColor=white" alt="Spring Boot 3.3.4"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19"/>
+  <img src="https://img.shields.io/badge/Vite-7-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite 7"/>
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/>
-  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License MIT"/>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Tests-115%20Passed-brightgreen?style=flat-square&logo=junit5&logoColor=white" alt="115 Tests Passed"/>
   <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square&logo=github-actions&logoColor=white" alt="Build Passing"/>
-  <img src="https://img.shields.io/badge/Coverage-Service%20%7C%20Repository%20%7C%20Controller-blue?style=flat-square" alt="Coverage"/>
+  <img src="https://img.shields.io/badge/Phase-1%20Complete-blueviolet?style=flat-square" alt="Phase 1"/>
 </p>
 
 ---
@@ -28,6 +30,7 @@
 ## Table of Contents
 
 - [Overview](#-overview)
+- [Screenshots](#-screenshots)
 - [Key Features](#-key-features)
 - [System Architecture](#-system-architecture)
 - [Pipeline Flow](#-pipeline-flow)
@@ -37,15 +40,36 @@
 - [API Endpoints](#-api-endpoints)
 - [Testing](#-testing)
 - [Bugs Fixed](#-bugs-fixed)
-- [Future Advancements](#-future-advancements)
+- [Development Roadmap](#-development-roadmap)
 
 ---
 
 ## 🧠 Overview
 
-**AI-PCLM** (AI-Pilot Cognitive Load Monitor) is a full-stack simulation and monitoring platform designed to evaluate, predict, and mitigate pilot cognitive overload in real time. It simulates realistic flight telemetry across six flight phases, feeds the data through an expert cognitive load computation model enhanced by ML predictions, evaluates risk using a Swiss Cheese multi-barrier safety model with hysteresis-based escalation, and generates actionable AI-driven recommendations — all within an atomic, transactional pipeline.
+**AI-PCLM** (AI-Pilot Cognitive Load Monitor) is a full-stack simulation and monitoring platform designed to evaluate, predict, and mitigate pilot cognitive overload in real time. The system features:
 
-The system is built for **aviation safety researchers**, **human factors engineers**, and **cockpit design teams** who need a controlled environment to study how cognitive load evolves during simulated flight missions and how automated interventions can reduce pilot error probability.
+- A **cockpit-themed React frontend** with real-time dashboards, animated radar displays, and scenario configuration
+- **JWT-secured REST API** with role-based access (Pilot / ATC)
+- **Configurable flight scenarios** (weather, emergency, terrain, visibility) with NORMAL / MODERATE / EXTREME presets
+- **6-phase flight simulation** generating deterministic telemetry across TAKEOFF → CRUISE → LANDING
+- **Expert + ML hybrid cognitive load** computation with confidence-gated fusion
+- **Swiss Cheese multi-barrier risk assessment** with hysteresis-based escalation
+- **AI-driven recommendations** including scenario-aware emergency procedures (SQUAWK 7700, DIVERT, DELAY TAKEOFF)
+
+Built for **aviation safety researchers**, **human factors engineers**, and **cockpit design teams** who need a controlled environment to study cognitive load evolution during simulated flight missions.
+
+---
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="aipclm-frontend/src/assets/landing-page.png" width="45%" alt="Landing Page"/>
+  <img src="aipclm-frontend/src/assets/home-page.png" width="45%" alt="Home Page"/>
+</p>
+<p align="center">
+  <img src="aipclm-frontend/src/assets/dashboard-page.png" width="45%" alt="Dashboard"/>
+  <img src="aipclm-frontend/src/assets/analytics-page.png" width="45%" alt="Analytics"/>
+</p>
 
 ---
 
@@ -53,52 +77,66 @@ The system is built for **aviation safety researchers**, **human factors enginee
 
 | Feature | Description |
 |---------|-------------|
-| 🛩️ **6-Phase Flight Simulation** | Deterministic telemetry generation across TAKEOFF → CLIMB → CRUISE → DESCENT → APPROACH → LANDING with seeded randomness (Random(42)) |
+| 🔐 **JWT Authentication** | BCrypt password hashing, HMAC-SHA384 tokens (24h expiry), role-based routing (PILOT → cockpit, ATC → radar), auto-seeded demo accounts |
+| 🎮 **Scenario Engine** | 9-axis flight scenario configuration (weather, emergency, terrain, visibility, runway, time-of-day, traffic, failures, fatigue) with 3 quick presets |
+| 🛩️ **6-Phase Flight Simulation** | Deterministic telemetry generation with scenario-aware modifiers across TAKEOFF → CLIMB → CRUISE → DESCENT → APPROACH → LANDING |
 | 🧮 **Expert + ML Hybrid Cognitive Load** | Weighted expert model (70%) blended with ML predictions (30%) using confidence-gated fusion |
 | 🤖 **ML Inference Service** | FastAPI microservice with 3-second timeout and automatic fallback (confidence=0.5) on failure |
-| 🔴 **4-Level Risk Classification** | LOW → MEDIUM → HIGH → CRITICAL with hysteresis thresholds to prevent oscillation |
+| 🔴 **4-Level Risk Classification** | LOW → MODERATE → HIGH → CRITICAL with hysteresis thresholds to prevent oscillation |
 | 🧀 **Swiss Cheese Safety Model** | 4-barrier breach detection (fatigue, errors, turbulence, physiological stress) inspired by James Reason's model |
-| 🎯 **Confidence Gate** | ML confidence < 0.7 automatically blocks CRITICAL risk escalation for safety |
-| 💡 **7 Recommendation Types** | REDUCE_TASKS, SUGGEST_BREAK, INCREASE_MONITORING, ALERT_SUPERVISOR, ADJUST_AUTOMATION, SIMPLIFY_DISPLAY, REDISTRIBUTE_WORKLOAD |
+| 💡 **12 Recommendation Types** | 7 baseline + 5 scenario-aware (SQUAWK_7700, DELAY_TAKEOFF, DIVERT_TO_ALTERNATE, ENGAGE_AUTOPILOT, REDUCE_SPEED) |
+| 📊 **Real-Time Cockpit Dashboard** | 3-panel layout with telemetry gauges, cognitive load radial gauge, risk & recommendations — 1-second polling |
+| 📈 **Analytics Dashboard** | Sparkline trends, risk distribution bars, ML performance metrics — 3-second polling |
+| 🗼 **ATC Radar View** | Animated radar with risk-colored blips, flight strip panel, 3-second auto-refresh |
 | ⚛️ **Atomic Pipeline** | 5-stage @Transactional pipeline with full rollback on any stage failure |
 | 🔄 **EMA Smoothing** | Exponential Moving Average (α=0.3) over last 5 frames for stable load tracking |
-| 🛡️ **Duplicate Frame Guard** | Prevents duplicate telemetry frame generation on concurrent scheduler ticks |
-| 📊 **Session Monitoring API** | REST endpoints exposing DTO-only views (no entity leakage) with proper error handling |
+| 🛡️ **Duplicate Frame Guard** | Prevents duplicate telemetry frames on concurrent scheduler ticks |
 
 ---
 
 ## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        AI-PCLM SYSTEM                               │
-│                                                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌───────────────────────┐  │
-│  │   Scheduler   │───▶│ Orchestrator │───▶│  Simulation Engine    │  │
-│  │  (1Hz tick)   │    │  (Atomic Tx) │    │  (Telemetry Gen)     │  │
-│  └──────────────┘    └──────┬───────┘    └───────────────────────┘  │
-│                             │                                       │
-│                    ┌────────▼────────┐                               │
-│                    │  Cognitive Load  │◀──── Expert Model (70%)      │
-│                    │    Service       │◀──── ML Prediction (30%)     │
-│                    └────────┬────────┘                               │
-│                             │              ┌──────────────────────┐  │
-│                    ┌────────▼────────┐     │  ML Inference Svc    │  │
-│                    │   Risk Engine   │     │  (FastAPI :8001)     │  │
-│                    │  Swiss Cheese + │     │  ┌────────────────┐  │  │
-│                    │  Hysteresis     │     │  │ /predict        │  │  │
-│                    └────────┬────────┘     │  │ /health         │  │  │
-│                             │              │  └────────────────┘  │  │
-│                    ┌────────▼────────┐     └──────────────────────┘  │
-│                    │ Recommendation  │                               │
-│                    │    Engine       │                               │
-│                    └────────┬────────┘                               │
-│                             │                                       │
-│                    ┌────────▼────────┐                               │
-│                    │   PostgreSQL    │                               │
-│                    │   Database      │                               │
-│                    └─────────────────┘                               │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            AI-PCLM SYSTEM                                   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                     REACT FRONTEND (:5174)                          │    │
+│  │  Landing → Login/Register → Home → Dashboard → Analytics            │    │
+│  │  ATC Radar → ATC Flight Detail                                      │    │
+│  │  ScenarioConfigurator · RadialGauge · Sparkline · ThreeBackground   │    │
+│  └──────────────────────────────┬──────────────────────────────────────┘    │
+│                                 │ REST + JWT                                │
+│  ┌──────────────────────────────▼──────────────────────────────────────┐    │
+│  │                   SPRING BOOT BACKEND (:8080)                       │    │
+│  │                                                                     │    │
+│  │  ┌──────────┐  ┌──────────┐  ┌───────────────┐  ┌──────────────┐  │    │
+│  │  │   Auth   │  │ Scenario │  │  Scheduler    │  │  Session     │  │    │
+│  │  │  JWT +   │  │  Engine  │  │  (1Hz tick)   │  │  Controller  │  │    │
+│  │  │  BCrypt  │  │  9-axis  │  └──────┬────────┘  └──────────────┘  │    │
+│  │  └──────────┘  └──────────┘         │                              │    │
+│  │                              ┌──────▼────────┐                     │    │
+│  │                              │  Orchestrator  │ (Atomic Tx)        │    │
+│  │                              └──────┬────────┘                     │    │
+│  │                    ┌────────────────┼────────────────┐             │    │
+│  │              ┌─────▼─────┐  ┌──────▼──────┐  ┌─────▼──────┐      │    │
+│  │              │ Simulation│  │  Cognitive   │  │   Risk     │      │    │
+│  │              │  Engine   │  │  Load Svc    │  │  Engine    │      │    │
+│  │              │ +Scenario │  │ Expert+ML    │  │ SwissCheese│      │    │
+│  │              └───────────┘  └──────┬──────┘  └────────────┘      │    │
+│  │                                    │                              │    │
+│  │                           ┌────────▼─────────┐                    │    │
+│  │                           │  Recommendation   │                    │    │
+│  │                           │  Engine (12 rules)│                    │    │
+│  │                           └──────────────────┘                    │    │
+│  └──────────────────────────────────┬────────────────────────────────┘    │
+│                                     │                                     │
+│  ┌──────────────────┐    ┌──────────▼──────────┐                          │
+│  │  ML Inference Svc │    │    PostgreSQL 18    │                          │
+│  │  (FastAPI :8001)  │    │    (aipclm_db)      │                          │
+│  │  /predict /health │    └─────────────────────┘                          │
+│  └──────────────────┘                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -109,21 +147,21 @@ Each simulation tick executes this **5-stage atomic pipeline**:
 
 ```
 Stage 1 ─ Telemetry Generation
-   │  SimulationEngineService generates a deterministic TelemetryFrame
-   │  with phase-aware parameters and seeded noise (Random(42))
+   │  SimulationEngineService generates a TelemetryFrame with
+   │  scenario-aware modifiers (weather, emergency, visibility multipliers)
    ▼
 Stage 2 ─ Cognitive Load Computation
    │  CognitiveLoadService computes expert load (weighted sum of 12 factors)
    │  and fuses it with ML predictions using confidence-gated blending
    ▼
 Stage 3 ─ Risk Assessment
-   │  RiskEngineService classifies risk (LOW/MED/HIGH/CRITICAL)
+   │  RiskEngineService classifies risk (LOW/MODERATE/HIGH/CRITICAL)
    │  using EMA-smoothed load, hysteresis bands, Swiss Cheese barriers,
-   │  and confidence gate (blocks CRITICAL when confidence < 0.7)
+   │  scenario severity floor, and confidence gate
    ▼
 Stage 4 ─ Recommendation Generation
-   │  RecommendationEngineService applies rule-based triggers
-   │  to produce context-appropriate pilot advisories
+   │  RecommendationEngineService applies 12 rule-based triggers including
+   │  scenario-aware rules (emergency → SQUAWK_7700, visibility → DELAY_TAKEOFF)
    ▼
 Stage 5 ─ Persist & Commit
       All entities saved atomically; any failure rolls back all stages
@@ -133,8 +171,8 @@ Stage 5 ─ Persist & Commit
 
 | Transition | Escalation (↑) | De-escalation (↓) |
 |------------|:--------------:|:------------------:|
-| LOW → MEDIUM | 40 | 35 |
-| MEDIUM → HIGH | 60 | 55 |
+| LOW → MODERATE | 40 | 35 |
+| MODERATE → HIGH | 60 | 55 |
 | HIGH → CRITICAL | 80 | 75 |
 
 ### Swiss Cheese Barriers
@@ -148,6 +186,20 @@ Stage 5 ─ Persist & Commit
 
 > **Rule**: All 4 barriers must be breached simultaneously + `smoothedLoad > 70` to trigger Swiss Cheese CRITICAL escalation.
 
+### Scenario Modifiers
+
+| Factor | Options | Effect |
+|--------|---------|--------|
+| Weather | CLEAR · RAIN · SNOW · FOG · THUNDERSTORM · ICE | Turbulence & stress multiplier |
+| Emergency | NONE · ENGINE_FAILURE · FIRE · HYDRAULIC_FAILURE · BIRD_STRIKE · MEDICAL | Risk floor + emergency recommendations |
+| Terrain | FLAT · MOUNTAINOUS · COASTAL · URBAN · DESERT · OCEANIC | Workload modifier |
+| Visibility | UNLIMITED → ZERO (6 levels) | Low-visibility triggers DELAY_TAKEOFF |
+| Time of Day | DAY · NIGHT · DAWN · DUSK | Fatigue modifier |
+| Runway | DRY · WET · ICY · CONTAMINATED · FLOODED | Landing risk |
+| Traffic Density | 0–10 | ATC workload |
+| System Failures | 0–5 | Cascading stress |
+| Crew Fatigue | 0–10 | Pre-existing fatigue |
+
 ---
 
 ## 🛠️ Tech Stack
@@ -159,12 +211,24 @@ Stage 5 ─ Persist & Commit
 | ![Java](https://img.shields.io/badge/Java_17-ED8B00?style=flat-square&logo=openjdk&logoColor=white) | Core language |
 | ![Spring Boot](https://img.shields.io/badge/Spring_Boot_3.3.4-6DB33F?style=flat-square&logo=springboot&logoColor=white) | Application framework |
 | ![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-6DB33F?style=flat-square&logo=spring&logoColor=white) | ORM & repository layer |
-| ![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=flat-square&logo=springsecurity&logoColor=white) | Authentication framework |
+| ![Spring Security](https://img.shields.io/badge/Spring_Security-6DB33F?style=flat-square&logo=springsecurity&logoColor=white) | JWT authentication & authorization |
 | ![Spring WebFlux](https://img.shields.io/badge/Spring_WebFlux-6DB33F?style=flat-square&logo=spring&logoColor=white) | Non-blocking ML service calls |
-| ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-4169E1?style=flat-square&logo=postgresql&logoColor=white) | Production database |
+| ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_18-4169E1?style=flat-square&logo=postgresql&logoColor=white) | Production database |
 | ![H2](https://img.shields.io/badge/H2-0000BB?style=flat-square&logo=database&logoColor=white) | In-memory test database |
+| ![JJWT](https://img.shields.io/badge/JJWT_0.12.5-000000?style=flat-square) | JWT token generation & validation |
 | ![Lombok](https://img.shields.io/badge/Lombok-DC382D?style=flat-square&logo=lombok&logoColor=white) | Boilerplate reduction |
 | ![Maven](https://img.shields.io/badge/Maven-C71A36?style=flat-square&logo=apachemaven&logoColor=white) | Build tool |
+
+### Frontend
+
+| Technology | Purpose |
+|-----------|---------|
+| ![React](https://img.shields.io/badge/React_19-61DAFB?style=flat-square&logo=react&logoColor=black) | UI framework |
+| ![Vite](https://img.shields.io/badge/Vite_7-646CFF?style=flat-square&logo=vite&logoColor=white) | Build tool & dev server |
+| ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) | Utility-first styling |
+| ![Three.js](https://img.shields.io/badge/Three.js-000000?style=flat-square&logo=threedotjs&logoColor=white) | 3D animated background |
+| ![React Router](https://img.shields.io/badge/React_Router_7-CA4245?style=flat-square&logo=reactrouter&logoColor=white) | Client-side routing |
+| ![Axios](https://img.shields.io/badge/Axios-5A29E4?style=flat-square&logo=axios&logoColor=white) | HTTP client with JWT interceptor |
 
 ### ML Service
 
@@ -172,7 +236,7 @@ Stage 5 ─ Persist & Commit
 |-----------|---------|
 | ![Python](https://img.shields.io/badge/Python_3.11+-3776AB?style=flat-square&logo=python&logoColor=white) | ML service language |
 | ![FastAPI](https://img.shields.io/badge/FastAPI_0.115-009688?style=flat-square&logo=fastapi&logoColor=white) | REST API framework |
-| ![scikit-learn](https://img.shields.io/badge/scikit--learn_1.6-F7931E?style=flat-square&logo=scikitlearn&logoColor=white) | ML library (future real model) |
+| ![scikit-learn](https://img.shields.io/badge/scikit--learn_1.6-F7931E?style=flat-square&logo=scikitlearn&logoColor=white) | ML library (future trained model) |
 | ![NumPy](https://img.shields.io/badge/NumPy_2.2-013243?style=flat-square&logo=numpy&logoColor=white) | Numerical operations |
 | ![Pydantic](https://img.shields.io/badge/Pydantic_2.10-E92063?style=flat-square&logo=pydantic&logoColor=white) | Request validation |
 | ![Uvicorn](https://img.shields.io/badge/Uvicorn-499848?style=flat-square&logo=gunicorn&logoColor=white) | ASGI server |
@@ -193,50 +257,87 @@ Stage 5 ─ Persist & Commit
 ai-pclm/
 ├── README.md
 │
-├── aipclm-backend/                          # Spring Boot Backend
+├── aipclm-backend/                              # Spring Boot Backend
 │   ├── pom.xml
 │   └── src/
 │       ├── main/java/com/aipclm/system/
 │       │   ├── AipclmBackendApplication.java
-│       │   ├── auth/                        # Authentication (placeholder)
+│       │   ├── auth/                            # ── Phase 0: Auth Foundation ──
+│       │   │   ├── controller/
+│       │   │   │   └── AuthController.java          # /api/auth/** endpoints
+│       │   │   ├── dto/
+│       │   │   │   ├── AuthResponse.java
+│       │   │   │   ├── LoginRequest.java
+│       │   │   │   └── RegisterRequest.java
+│       │   │   ├── model/
+│       │   │   │   ├── User.java                    # User entity (email, password, role)
+│       │   │   │   └── UserRole.java                # PILOT | ATC
+│       │   │   ├── repository/
+│       │   │   │   └── UserRepository.java
+│       │   │   ├── security/
+│       │   │   │   ├── JwtAuthFilter.java           # OncePerRequestFilter
+│       │   │   │   └── JwtTokenProvider.java        # HMAC-SHA384 token utils
+│       │   │   └── service/
+│       │   │       └── AuthService.java             # Register, login, BCrypt
 │       │   ├── cognitive/
 │       │   │   ├── model/
-│       │   │   │   ├── CognitiveState.java      # Core cognitive state entity
-│       │   │   │   └── RiskLevel.java            # LOW | MEDIUM | HIGH | CRITICAL
+│       │   │   │   ├── CognitiveState.java
+│       │   │   │   └── RiskLevel.java               # LOW | MODERATE | HIGH | CRITICAL
 │       │   │   ├── repository/
 │       │   │   │   └── CognitiveStateRepository.java
 │       │   │   └── service/
-│       │   │       ├── CognitiveLoadService.java     # Expert + ML fusion engine
-│       │   │       ├── MLInferenceService.java       # WebClient-based ML caller
-│       │   │       ├── MLPredictionRequest.java      # ML request DTO
-│       │   │       └── MLPredictionResponse.java     # ML response DTO
+│       │   │       ├── CognitiveLoadService.java    # Expert + ML fusion
+│       │   │       ├── MLInferenceService.java      # WebClient ML caller
+│       │   │       ├── MLPredictionRequest.java
+│       │   │       └── MLPredictionResponse.java
 │       │   ├── config/
-│       │   │   └── CorsConfig.java
+│       │   │   ├── CorsConfig.java
+│       │   │   ├── DataSeeder.java                  # Seed pilot@aipclm.com & tower@aipclm.com
+│       │   │   └── SecurityConfig.java              # Spring Security filter chain
 │       │   ├── pilot/
 │       │   │   ├── model/
-│       │   │   │   ├── Pilot.java                # Pilot entity with profile type
-│       │   │   │   └── PilotProfileType.java     # NOVICE | INTERMEDIATE | EXPERIENCED
+│       │   │   │   ├── Pilot.java
+│       │   │   │   └── PilotProfileType.java        # EXPERIENCED | NOVICE | FATIGUE_PRONE | HIGH_STRESS
 │       │   │   └── repository/
 │       │   │       └── PilotRepository.java
 │       │   ├── recommendation/
 │       │   │   ├── model/
-│       │   │   │   ├── AIRecommendation.java         # Recommendation entity
-│       │   │   │   ├── RecommendationType.java       # 7 recommendation types
-│       │   │   │   └── Severity.java                 # INFO | WARNING | CRITICAL
+│       │   │   │   ├── AIRecommendation.java
+│       │   │   │   ├── RecommendationType.java      # 12 recommendation types
+│       │   │   │   └── Severity.java                # INFO | CAUTION | WARNING | CRITICAL
 │       │   │   ├── repository/
 │       │   │   │   └── AIRecommendationRepository.java
 │       │   │   └── service/
-│       │   │       └── RecommendationEngineService.java  # Rule-based engine
+│       │   │       └── RecommendationEngineService.java
 │       │   ├── risk/
 │       │   │   ├── model/
-│       │   │   │   └── RiskAssessment.java       # Risk assessment entity
+│       │   │   │   └── RiskAssessment.java
 │       │   │   ├── repository/
 │       │   │   │   └── RiskAssessmentRepository.java
 │       │   │   └── service/
-│       │   │       └── RiskEngineService.java    # Hysteresis + Swiss Cheese
+│       │   │       └── RiskEngineService.java       # Hysteresis + Swiss Cheese + scenario floor
+│       │   ├── scenario/                            # ── Phase 1: Scenario Engine ──
+│       │   │   ├── controller/
+│       │   │   │   └── ScenarioController.java      # /api/scenario/** CRUD
+│       │   │   ├── dto/
+│       │   │   │   └── ScenarioRequest.java
+│       │   │   ├── model/
+│       │   │   │   ├── DifficultyPreset.java        # NORMAL | MODERATE | EXTREME
+│       │   │   │   ├── EmergencyType.java
+│       │   │   │   ├── FlightScenario.java          # 9-axis scenario entity
+│       │   │   │   ├── MissionType.java
+│       │   │   │   ├── RunwayCondition.java
+│       │   │   │   ├── TerrainType.java
+│       │   │   │   ├── TimeOfDay.java
+│       │   │   │   ├── VisibilityLevel.java
+│       │   │   │   └── WeatherCondition.java
+│       │   │   ├── repository/
+│       │   │   │   └── FlightScenarioRepository.java
+│       │   │   └── service/
+│       │   │       └── ScenarioService.java
 │       │   ├── session/
 │       │   │   ├── controller/
-│       │   │   │   └── SessionMonitoringController.java  # REST API
+│       │   │   │   └── SessionMonitoringController.java  # /api/session/** REST API
 │       │   │   ├── model/
 │       │   │   │   ├── FlightSession.java
 │       │   │   │   └── FlightSessionStatus.java
@@ -244,48 +345,65 @@ ai-pclm/
 │       │   │       └── FlightSessionRepository.java
 │       │   ├── simulation/
 │       │   │   ├── service/
-│       │   │   │   ├── SimulationEngineService.java      # Telemetry generator
-│       │   │   │   ├── SimulationOrchestratorService.java # Atomic pipeline
-│       │   │   │   └── SimulationSchedulerService.java   # 1Hz scheduler
+│       │   │   │   ├── SimulationEngineService.java     # Scenario-aware telemetry gen
+│       │   │   │   ├── SimulationOrchestratorService.java
+│       │   │   │   └── SimulationSchedulerService.java  # 1Hz scheduler
 │       │   │   └── web/
 │       │   │       └── SessionTestController.java
 │       │   └── telemetry/
 │       │       ├── model/
 │       │       │   ├── PhaseOfFlight.java
-│       │       │   └── TelemetryFrame.java       # 30+ sensor fields
+│       │       │   └── TelemetryFrame.java          # 30+ sensor fields
 │       │       └── repository/
 │       │           └── TelemetryFrameRepository.java
 │       │
 │       ├── main/resources/
-│       │   └── application.yml                   # PostgreSQL config
+│       │   └── application.yml
 │       │
-│       └── test/
-│           ├── java/com/aipclm/system/
-│           │   ├── TestFixtures.java                     # Shared test factories
-│           │   ├── SystemMustNotDoTest.java               # 14 negative constraint tests
-│           │   ├── cognitive/service/
-│           │   │   ├── CognitiveLoadServiceTest.java     # 10 tests
-│           │   │   └── MLInferenceServiceTest.java       # 8 tests
-│           │   ├── pilot/repository/
-│           │   │   └── PilotRepositoryTest.java          # 1 test
-│           │   ├── recommendation/service/
-│           │   │   └── RecommendationEngineServiceTest.java # 13 tests
-│           │   ├── risk/service/
-│           │   │   └── RiskEngineServiceTest.java        # 20 tests
-│           │   ├── session/controller/
-│           │   │   └── SessionMonitoringControllerTest.java # 8 tests
-│           │   ├── simulation/service/
-│           │   │   ├── SimulationEngineServiceTest.java       # 23 tests
-│           │   │   ├── SimulationOrchestratorServiceTest.java # 9 tests
-│           │   │   └── SimulationSchedulerServiceTest.java    # 8 tests
-│           │   └── telemetry/repository/
-│           │       └── TelemetryFrameRepositoryTest.java     # 1 test
-│           └── resources/
-│               └── application.yml               # H2 in-memory test config
+│       └── test/java/com/aipclm/system/             # 115 unit tests
 │
-└── aipclm-ml-service/                       # Python ML Microservice
-    ├── main.py                               # FastAPI app with /predict & /health
-    └── requirements.txt                      # FastAPI, scikit-learn, numpy, pydantic
+├── aipclm-frontend/                                 # React Frontend
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── App.jsx
+│       ├── main.jsx
+│       ├── index.css                                # Cockpit theme (Orbitron/Rajdhani/Share Tech Mono)
+│       ├── components/
+│       │   ├── GlassPanel.jsx                       # Frosted glass card component
+│       │   ├── MiniChart.jsx                        # Inline trend charts
+│       │   ├── RadialGauge.jsx                      # Cognitive load circular gauge
+│       │   ├── RecommendationCard.jsx               # Severity-tagged AI recommendation
+│       │   ├── RiskIndicator.jsx                    # Risk level badge
+│       │   ├── ScenarioConfigurator.jsx             # 9-axis scenario config accordion
+│       │   ├── Sparkline.jsx                        # Animated sparkline charts
+│       │   ├── TechGrid.jsx                         # Background grid pattern
+│       │   └── ThreeBackground.jsx                  # Three.js animated cockpit background
+│       ├── context/
+│       │   ├── AuthContext.jsx                      # JWT auth state management
+│       │   └── SessionContext.jsx                   # Active session state
+│       ├── layouts/
+│       │   ├── AtcLayout.jsx                        # ATC navigation layout
+│       │   ├── ProtectedLayout.jsx                  # Pilot navigation layout
+│       │   └── PublicLayout.jsx                     # Public page layout
+│       ├── pages/
+│       │   ├── LandingPage.jsx                      # / — Hero + feature cards
+│       │   ├── LoginPage.jsx                        # /login
+│       │   ├── RegisterPage.jsx                     # /register
+│       │   ├── HomePage.jsx                         # /home — Session creation + list
+│       │   ├── DashboardPage.jsx                    # /dashboard/:id — Real-time cockpit
+│       │   ├── AnalyticsPage.jsx                    # /analytics/:id — Trends & ML perf
+│       │   ├── AtcRadarPage.jsx                     # /atc — Animated radar display
+│       │   └── AtcFlightDetailPage.jsx              # /atc/flight/:id — Flight detail
+│       ├── router/
+│       │   └── AppRouter.jsx                        # Route config with guards
+│       └── services/
+│           └── api.js                               # Axios client + JWT interceptor
+│
+└── aipclm-ml-service/                               # Python ML Microservice
+    ├── main.py                                      # FastAPI with /predict & /health
+    └── requirements.txt
 ```
 
 ---
@@ -298,8 +416,9 @@ ai-pclm/
 |------------|---------|
 | Java JDK | 17+ |
 | Maven | 3.8+ |
+| Node.js | 18+ |
 | Python | 3.11+ |
-| PostgreSQL | 14+ |
+| PostgreSQL | 15+ |
 | Git | 2.30+ |
 
 ### 1. Clone the Repository
@@ -312,24 +431,18 @@ cd ai-pilot-cognitive-load-monitor-system
 ### 2. Set Up the Database
 
 ```sql
--- Connect to PostgreSQL and create the database
 CREATE DATABASE aipclm_db;
 ```
 
-> The application uses `postgres:postgres` as default credentials. Update `aipclm-backend/src/main/resources/application.yml` if your setup differs.
+> Default credentials: `postgres:postgres` on `localhost:5432`. Update `aipclm-backend/src/main/resources/application.yml` if different.
 
-### 3. Start the ML Service
+### 3. Start the ML Service (Optional)
 
 ```bash
 cd aipclm-ml-service
 pip install -r requirements.txt
 python main.py
-```
-
-The ML service will start on `http://localhost:8001`. Verify with:
-```bash
-curl http://localhost:8001/health
-# → {"status":"ok","service":"aipclm-ml-service"}
+# → http://localhost:8001 (auto-fallback if unavailable)
 ```
 
 ### 4. Start the Backend
@@ -337,62 +450,79 @@ curl http://localhost:8001/health
 ```bash
 cd aipclm-backend
 mvn spring-boot:run
+# → http://localhost:8080
 ```
 
-The Spring Boot application will start on `http://localhost:8080`.
+Verify: `curl http://localhost:8080/api/auth/health` → `{"status":"UP"}`
 
-### 5. Run a Simulation
+### 5. Start the Frontend
 
 ```bash
-# Create a test session (via the test controller)
-curl -X POST http://localhost:8080/api/test/sessions/start
-
-# Monitor the session
-curl http://localhost:8080/api/sessions/{sessionId}/latest
+cd aipclm-frontend
+npm install
+npx vite --port 5174
+# → http://localhost:5174
 ```
+
+### 6. Login & Start Monitoring
+
+Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
+
+| Role | Email | Password | Call Sign |
+|------|-------|----------|-----------|
+| **PILOT** | `pilot@aipclm.com` | `pilot123` | ALPHA-7 |
+| **ATC** | `tower@aipclm.com` | `tower123` | TOWER-1 |
 
 ---
 
 ## 📡 API Endpoints
 
-### Session Monitoring Controller
+### Authentication (`/api/auth`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/sessions/{id}/latest` | Get latest telemetry + cognitive state for a session |
-| `GET` | `/api/sessions/{id}/recommendations` | Get all AI recommendations for a session |
-| `GET` | `/api/sessions/{id}/risk-history` | Get risk assessment history |
-| `GET` | `/api/sessions/{id}/cognitive-history` | Get cognitive state history |
+| `POST` | `/api/auth/register` | Register new user (PILOT or ATC) |
+| `POST` | `/api/auth/login` | Login → returns JWT token |
+| `GET` | `/api/auth/me` | Get current user info |
+| `GET` | `/api/auth/health` | Health check |
 
-### ML Inference Service
+### Sessions (`/api/session`) — *Requires JWT*
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/session` | Create new flight session |
+| `GET` | `/api/session/list` | List all sessions |
+| `GET` | `/api/session/{id}` | Get session by ID |
+| `DELETE` | `/api/session/{id}` | Delete session + all child data |
+| `DELETE` | `/api/session/purge-all` | Purge all sessions |
+| `GET` | `/api/session/{id}/latest-state` | Latest telemetry + cognitive + risk + recommendations |
+| `GET` | `/api/session/{id}/cognitive/latest` | Latest cognitive assessment |
+| `GET` | `/api/session/{id}/risk/latest` | Latest risk assessment |
+| `GET` | `/api/session/{id}/cognitive/history` | All cognitive frames |
+| `GET` | `/api/session/{id}/risk/history` | All risk frames |
+| `GET` | `/api/session/{id}/recommendations/latest` | Latest recommendations |
+
+### Scenarios (`/api/scenario`) — *Requires JWT*
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/scenario/{sessionId}` | Create scenario for session |
+| `GET` | `/api/scenario/{sessionId}` | Get scenario for session |
+| `PUT` | `/api/scenario/{sessionId}` | Update scenario (mid-flight OK) |
+
+### Simulation (`/api/simulation`) — *Requires JWT*
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/simulation/{sessionId}/start` | Start simulation engine |
+| `POST` | `/api/simulation/{sessionId}/stop` | Stop simulation engine |
+
+### ML Inference Service (`:8001`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
 | `POST` | `/predict` | Predict cognitive load from telemetry features |
-
-#### Prediction Request Body
-
-```json
-{
-  "expertComputedLoad": 45.0,
-  "reactionTimeMs": 350,
-  "turbulenceLevel": 0.3,
-  "stressIndex": 40.0,
-  "fatigueIndex": 25.0,
-  "phaseOfFlight": "CRUISE"
-}
-```
-
-#### Prediction Response
-
-```json
-{
-  "predicted_load": 47.23,
-  "error_probability": 0.4723,
-  "confidence_score": 0.85
-}
-```
 
 ---
 
@@ -405,7 +535,7 @@ cd aipclm-backend
 mvn test
 ```
 
-### Test Results Overview
+### Test Results
 
 ```
 Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
@@ -415,85 +545,63 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 
 | # | Test Class | Tests | Category | Description |
 |---|-----------|:-----:|----------|-------------|
-| 1 | `SimulationEngineServiceTest` | **23** | 🛩️ Simulation | Basic functionality, phase transitions (10 boundary tests), noise determinism, edge cases |
-| 2 | `RiskEngineServiceTest` | **20** | 🔴 Risk | Classification, hysteresis (7 tests), Swiss Cheese model, confidence gate, edge cases |
-| 3 | `SystemMustNotDoTest` | **14** | 🚫 Constraints | 10 nested classes: no CRITICAL on spike, no crash on ML down, no frames after completion, bounded load, etc. |
-| 4 | `RecommendationEngineServiceTest` | **13** | 💡 Recommendation | All 7 rule triggers, deduplication, edge cases |
-| 5 | `CognitiveLoadServiceTest` | **10** | 🧮 Cognitive | Core computation, expert weight verification, phase boost, persistence, clamping |
-| 6 | `SimulationOrchestratorServiceTest` | **9** | ⚛️ Orchestration | Atomic integrity, rollback on each pipeline stage failure |
-| 7 | `MLInferenceServiceTest` | **8** | 🤖 ML Inference | ML up, ML down (4 failure modes), timeout with fallback |
-| 8 | `SessionMonitoringControllerTest` | **8** | 📊 Controller | DTO-only exposure (no entity leakage), not-found handling, null safety |
-| 9 | `SimulationSchedulerServiceTest` | **8** | 🔄 Scheduler | Normal operation, edge cases, concurrency guards |
-| 10 | `PilotRepositoryTest` | **1** | 🗄️ Repository | JPA integration with H2 |
-| 11 | `TelemetryFrameRepositoryTest` | **1** | 🗄️ Repository | JPA integration with H2 |
-
-### Test Categories Covered
-
-- ✅ **Simulation Engine** — Telemetry generation, 6-phase transitions, deterministic noise
-- ✅ **Cognitive Load** — Expert model weights, ML fusion, phase boost, clamping (0–100)
-- ✅ **ML Inference** — Service up/down, timeout (3s), automatic fallback
-- ✅ **Risk Engine** — 4-level classification, hysteresis bands, Swiss Cheese 4-barrier model
-- ✅ **Recommendations** — All 7 types, severity mapping, deduplication
-- ✅ **Orchestration** — Atomic pipeline, @Transactional rollback on all failure points
-- ✅ **Scheduler** — Session lifecycle, duplicate prevention, concurrency
-- ✅ **Controller** — DTO-only projection, 404 handling, null field safety
-- ✅ **System Must Not Do** — 14 negative constraint tests ensuring safety invariants
+| 1 | `SimulationEngineServiceTest` | **23** | 🛩️ Simulation | Phase transitions, noise determinism, scenario modifiers |
+| 2 | `RiskEngineServiceTest` | **20** | 🔴 Risk | Hysteresis, Swiss Cheese, confidence gate |
+| 3 | `SystemMustNotDoTest` | **14** | 🚫 Constraints | 14 negative safety invariants |
+| 4 | `RecommendationEngineServiceTest` | **13** | 💡 Recommendation | All 12 rule triggers, deduplication |
+| 5 | `CognitiveLoadServiceTest` | **10** | 🧮 Cognitive | Expert weights, ML fusion, clamping |
+| 6 | `SimulationOrchestratorServiceTest` | **9** | ⚛️ Orchestration | Atomic integrity, rollback |
+| 7 | `MLInferenceServiceTest` | **8** | 🤖 ML Inference | Timeout, fallback modes |
+| 8 | `SessionMonitoringControllerTest` | **8** | 📊 Controller | DTO-only exposure, 404 handling |
+| 9 | `SimulationSchedulerServiceTest` | **8** | 🔄 Scheduler | Lifecycle, concurrency guards |
+| 10 | `PilotRepositoryTest` | **1** | 🗄️ Repository | JPA integration |
+| 11 | `TelemetryFrameRepositoryTest` | **1** | 🗄️ Repository | JPA integration |
 
 ---
 
 ## 🐛 Bugs Fixed
 
-Three critical bugs were identified and fixed during the testing phase:
-
-| # | Bug | File | Fix |
-|---|-----|------|-----|
-| 1 | **ML service crash** — No error handling when ML service is unreachable | `MLInferenceService.java` | Added try/catch with `buildFallback()` (confidence=0.5) + 3-second timeout via `.timeout(Duration.ofSeconds(3))` |
-| 2 | **smoothedLoad always 0.0** — EMA-smoothed load was computed but never persisted | `RiskEngineService.java` | Added `cogState.setSmoothedLoad(smoothedLoad)` + `cognitiveStateRepository.save(cogState)` |
-| 3 | **Duplicate telemetry frames** — Concurrent scheduler ticks could generate frames with the same number | `SimulationEngineService.java` | Added guard checking `existingLatest.getFrameNumber() >= nextFrameNumber` before generation |
+| # | Bug | Fix |
+|---|-----|-----|
+| 1 | **ML service crash** — No error handling when ML unreachable | Added try/catch with fallback (confidence=0.5) + 3s timeout |
+| 2 | **smoothedLoad always 0.0** — EMA never persisted | Added `cogState.setSmoothedLoad()` + save |
+| 3 | **Duplicate telemetry frames** — Concurrent scheduler race | Added frame number guard before generation |
+| 4 | **DELETE 403 Forbidden** — SecurityAutoConfiguration exclusion conflicting with custom SecurityConfig | Removed exclusion from `@SpringBootApplication` |
+| 5 | **Session delete FK violation** — flight_scenario not cleaned up | Added scenario delete to session delete + purge-all |
 
 ---
 
-## 🔮 Future Advancements
+## 🗺️ Development Roadmap
 
-### Near-Term Enhancements
+### Completed Phases
 
-| Enhancement | Description | Priority |
-|------------|-------------|:--------:|
-| 🧠 **Real ML Model Training** | Replace the simulated prediction formula with a trained model (LSTM/Transformer) using real pilot physiological data from NASA-TLX or MATB-II datasets | ![High](https://img.shields.io/badge/-HIGH-red?style=flat-square) |
-| 📊 **React Dashboard Revival** | Rebuild the React frontend with real-time WebSocket streaming, live telemetry charts (Recharts/D3), and cognitive load heatmaps | ![High](https://img.shields.io/badge/-HIGH-red?style=flat-square) |
-| 🔐 **JWT Authentication** | Complete the auth module with JWT token-based authentication, role-based access (Pilot, Supervisor, Admin), and session-scoped API access | ![High](https://img.shields.io/badge/-HIGH-red?style=flat-square) |
-| 📈 **Historical Analytics Engine** | Build trend analysis across sessions — fatigue accumulation over multiple flights, pilot performance degradation tracking | ![Medium](https://img.shields.io/badge/-MEDIUM-orange?style=flat-square) |
-| 🔔 **Real-Time Alert System** | WebSocket-based push notifications to supervisor dashboards when risk crosses HIGH or Swiss Cheese alignment triggers | ![Medium](https://img.shields.io/badge/-MEDIUM-orange?style=flat-square) |
+| Phase | Name | Status | Description |
+|:-----:|------|:------:|-------------|
+| **0** | **Auth Foundation** | ✅ Done | JWT authentication, BCrypt, role-based access (PILOT/ATC), auto-seeded accounts, Spring Security config, React login/register |
+| **1** | **Scenario Engine** | ✅ Done | 9-axis flight scenario configuration, 3 presets (NORMAL/MODERATE/EXTREME), scenario-aware simulation modifiers, 5 new recommendation types, cockpit dashboard, analytics, ATC radar |
 
-### Mid-Term Features
+### Upcoming Phases
 
-| Feature | Description | Priority |
-|---------|-------------|:--------:|
-| 🎮 **Multi-Pilot Simulation** | Simulate entire flight crews (Captain + First Officer) with crew resource management (CRM) cognitive load interaction modeling | ![Medium](https://img.shields.io/badge/-MEDIUM-orange?style=flat-square) |
-| 🌦️ **Dynamic Weather Integration** | Plug in real-time weather APIs (METAR/TAF) to inject actual atmospheric conditions into turbulence modeling | ![Medium](https://img.shields.io/badge/-MEDIUM-orange?style=flat-square) |
-| 🏥 **Wearable Device Integration** | Connect real physiological sensors (Garmin HRM, EEG headbands, eye trackers) for live pilot biometric data ingestion | ![Medium](https://img.shields.io/badge/-MEDIUM-orange?style=flat-square) |
-| 📱 **Mobile Supervisor App** | Flutter/React Native companion app for supervisors to monitor active flight sessions remotely | ![Low](https://img.shields.io/badge/-LOW-blue?style=flat-square) |
-| 🐳 **Docker + K8s Deployment** | Containerize all services with Docker Compose for local dev and Kubernetes Helm charts for production deployment | ![Medium](https://img.shields.io/badge/-MEDIUM-orange?style=flat-square) |
+| Phase | Name | Status | Description |
+|:-----:|------|:------:|-------------|
+| **2** | **WebSocket Real-Time Streaming** | 🔜 Next | Replace HTTP polling (1s/3s) with WebSocket push for sub-100ms dashboard updates. STOMP over SockJS with per-session topic channels. |
+| **3** | **Advanced ML Pipeline** | 📋 Planned | Replace simulated ML formula with a trained LSTM/Transformer model using NASA-TLX and MATB-II datasets. Add model versioning, A/B testing, and SHAP/LIME explainability layer. |
+| **4** | **Multi-Pilot & CRM Simulation** | 📋 Planned | Simulate Captain + First Officer with Crew Resource Management (CRM) cognitive interaction modeling. Shared cockpit state, cross-crew fatigue propagation. |
+| **5** | **Wearable & Sensor Integration** | 📋 Planned | Ingest real physiological data from Garmin HRM, EEG headbands, and eye trackers. Replace simulated biometrics with live sensor feeds. |
+| **6** | **Containerization & Orchestration** | 📋 Planned | **Docker** — Multi-stage Dockerfiles for backend, frontend, and ML service. Docker Compose for single-command local dev startup. **Kubernetes** — Helm charts for production deployment with auto-scaling, health probes, ConfigMaps, and Secrets. Horizontal Pod Autoscaler for ML inference under load. |
+| **7** | **CI/CD & Observability** | 📋 Planned | GitHub Actions pipeline (build → test → Docker push → deploy). Prometheus + Grafana monitoring. OpenTelemetry + Jaeger distributed tracing across Spring Boot ↔ FastAPI boundaries. |
+| **8** | **Dynamic Weather & ADS-B** | 📋 Planned | Real-time METAR/TAF weather API integration. ADS-B live feed ingestion for shadow-monitoring actual flights in research mode. |
 
-### Long-Term Vision
+### Infrastructure Goals
 
-| Vision | Description | Priority |
-|--------|-------------|:--------:|
-| 🤖 **Reinforcement Learning Autopilot** | Train an RL agent that dynamically adjusts cockpit automation level based on real-time cognitive load — reducing load during overload and increasing engagement during underload | ![Low](https://img.shields.io/badge/-LOW-blue?style=flat-square) |
-| 🧬 **Digital Twin Pilot Profiles** | Build personalized cognitive models per pilot using transfer learning — each pilot's fatigue curves, reaction patterns, and stress responses modeled individually | ![Low](https://img.shields.io/badge/-LOW-blue?style=flat-square) |
-| 🌐 **FAA/EASA Compliance Module** | Implement regulatory reporting aligned with FAA Advisory Circulars (AC 120-51E) and EASA Acceptable Means of Compliance for fatigue risk management | ![Low](https://img.shields.io/badge/-LOW-blue?style=flat-square) |
-| 🔬 **Explainable AI (XAI) Layer** | Add SHAP/LIME explanations for every ML prediction — showing which telemetry features contributed most to the cognitive load estimate | ![Low](https://img.shields.io/badge/-LOW-blue?style=flat-square) |
-| 📡 **ADS-B Live Feed Integration** | Ingest real ADS-B aircraft telemetry for shadow-monitoring actual flights (research mode) to validate the model against real-world operations | ![Low](https://img.shields.io/badge/-LOW-blue?style=flat-square) |
-
-### Infrastructure & DevOps
-
-| Enhancement | Description |
-|------------|-------------|
-| 🔄 **CI/CD Pipeline** | GitHub Actions with automated `mvn test`, ML service pytest, Docker image builds, and deployment to AWS/GCP |
-| 📊 **Observability Stack** | Prometheus metrics + Grafana dashboards for pipeline latency, ML inference P95, and database connection pool monitoring |
-| 🔍 **Distributed Tracing** | OpenTelemetry + Jaeger for end-to-end request tracing across Spring Boot ↔ FastAPI service boundaries |
-| 📝 **OpenAPI Documentation** | Auto-generated Swagger UI for all REST endpoints with request/response examples |
-| 🗃️ **Database Migrations** | Flyway or Liquibase for version-controlled schema migrations replacing `ddl-auto: update` |
+| Goal | Technology | Description |
+|------|-----------|-------------|
+| 🐳 **Containerization** | Docker + Docker Compose | Multi-stage builds for all 3 services, single `docker-compose up` for full-stack local development |
+| ☸️ **Orchestration** | Kubernetes + Helm | Production-grade deployment with auto-scaling pods, rolling updates, liveness/readiness probes, persistent volume claims for PostgreSQL |
+| 🔄 **CI/CD** | GitHub Actions | Automated test → build → push → deploy pipeline with environment promotion (dev → staging → prod) |
+| 📊 **Observability** | Prometheus + Grafana + Jaeger | Pipeline latency P95/P99, ML inference throughput, database connection pool monitoring, distributed request tracing |
+| 🗃️ **Schema Migrations** | Flyway | Version-controlled database migrations replacing `ddl-auto: update` |
+| 📝 **API Documentation** | SpringDoc OpenAPI | Auto-generated Swagger UI for all REST endpoints |
 
 ---
 
@@ -504,7 +612,7 @@ Three critical bugs were identified and fixed during the testing phase:
 ---
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Made%20with-☕%20Java%20%2B%20🐍%20Python-blueviolet?style=for-the-badge" alt="Made with Java + Python"/>
+  <img src="https://img.shields.io/badge/Made%20with-☕%20Java%20%2B%20⚛️%20React%20%2B%20🐍%20Python-blueviolet?style=for-the-badge" alt="Made with Java + React + Python"/>
 </p>
 
 <p align="center">

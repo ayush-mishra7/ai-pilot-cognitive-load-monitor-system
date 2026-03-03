@@ -10,10 +10,13 @@ import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
+import jakarta.persistence.EntityManager;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +37,77 @@ public class SessionMonitoringController {
     private final CognitiveStateRepository cognitiveStateRepository;
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final AIRecommendationRepository recommendationRepository;
+    private final EntityManager entityManager;
+
+    /* ─── Health check ─── */
+    @GetMapping("/health")
+    public ResponseEntity<java.util.Map<String, String>> health() {
+        return ResponseEntity.ok(java.util.Map.of("status", "UP"));
+    }
+
+    /* ─── Purge ALL sessions and related data ─── */
+    @DeleteMapping("/purge-all")
+    @Transactional
+    public ResponseEntity<java.util.Map<String, Object>> purgeAllSessions() {
+        long deleted = flightSessionRepository.count();
+        entityManager.createNativeQuery("DELETE FROM ai_recommendation").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM risk_assessment").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM cognitive_state").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM telemetry_frame").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM flight_scenario").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM flight_sessions").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM pilots").executeUpdate();
+        return ResponseEntity.ok(java.util.Map.of("purged", deleted));
+    }
+
+    /* ─── Delete a session and all related data ─── */
+    @DeleteMapping("/{sessionId}")
+    @Transactional
+    public ResponseEntity<Void> deleteSession(@PathVariable UUID sessionId) {
+        FlightSession session = flightSessionRepository.findById(sessionId).orElse(null);
+        if (session == null) return ResponseEntity.notFound().build();
+
+        UUID pilotId = session.getPilot().getId();
+
+        // Delete in FK dependency order using native SQL
+        entityManager.createNativeQuery(
+            "DELETE FROM ai_recommendation WHERE risk_assessment_id IN " +
+            "(SELECT ra.id FROM risk_assessment ra " +
+            "JOIN cognitive_state cs ON ra.cognitive_state_id = cs.id " +
+            "JOIN telemetry_frame tf ON cs.telemetry_frame_id = tf.id " +
+            "WHERE tf.flight_session_id = :sid)")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM risk_assessment WHERE cognitive_state_id IN " +
+            "(SELECT cs.id FROM cognitive_state cs " +
+            "JOIN telemetry_frame tf ON cs.telemetry_frame_id = tf.id " +
+            "WHERE tf.flight_session_id = :sid)")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM cognitive_state WHERE telemetry_frame_id IN " +
+            "(SELECT tf.id FROM telemetry_frame tf WHERE tf.flight_session_id = :sid)")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM telemetry_frame WHERE flight_session_id = :sid")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM flight_scenario WHERE flight_session_id = :sid")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        flightSessionRepository.deleteById(sessionId);
+
+        // Clean up orphaned pilot
+        entityManager.createNativeQuery(
+            "DELETE FROM pilots WHERE id = :pid AND id NOT IN " +
+            "(SELECT pilot_id FROM flight_sessions)")
+            .setParameter("pid", pilotId).executeUpdate();
+
+        return ResponseEntity.noContent().build();
+    }
 
     @GetMapping("/{sessionId}/latest-state")
     public ResponseEntity<SessionStateDto> getLatestSessionState(@PathVariable UUID sessionId) {
@@ -78,6 +152,66 @@ public class SessionMonitoringController {
         return ResponseEntity.ok(response);
     }
 
+    /* ─── List all sessions ─── */
+    @GetMapping("/list")
+    public ResponseEntity<List<SessionSummaryDto>> listSessions() {
+        List<FlightSession> sessions = flightSessionRepository.findAll();
+        List<SessionSummaryDto> result = sessions.stream()
+                .map(s -> SessionSummaryDto.builder()
+                        .id(s.getId())
+                        .status(s.getStatus().name())
+                        .pilotName(s.getPilot() != null ? s.getPilot().getFullName() : "Unknown")
+                        .totalFrames(s.getTotalFramesGenerated())
+                        .createdAt(s.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
+    /* ─── Full cognitive history for a session ─── */
+    @GetMapping("/{sessionId}/cognitive-history")
+    public ResponseEntity<List<CognitiveStateDto>> getCognitiveHistory(@PathVariable UUID sessionId) {
+        FlightSession session = flightSessionRepository.findById(sessionId).orElse(null);
+        if (session == null) return ResponseEntity.notFound().build();
+
+        List<CognitiveState> states = cognitiveStateRepository.findAllBySessionIdOrderByTimestampAsc(sessionId);
+        List<CognitiveStateDto> dtos = states.stream().map(s -> {
+            RiskAssessment risk = riskAssessmentRepository.findByCognitiveStateId(s.getId()).orElse(null);
+            return CognitiveStateDto.builder()
+                    .expertComputedLoad(s.getExpertComputedLoad())
+                    .mlPredictedLoad(s.getMlPredictedLoad())
+                    .smoothedLoad(s.getSmoothedLoad())
+                    .confidenceScore(s.getConfidenceScore())
+                    .errorProbability(s.getErrorProbability())
+                    .fatigueTrendSlope(s.getFatigueTrendSlope())
+                    .riskLevel(risk != null ? risk.getRiskLevel().name() : "UNKNOWN")
+                    .build();
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
+    /* ─── Full risk history for a session ─── */
+    @GetMapping("/{sessionId}/risk-history")
+    public ResponseEntity<List<RiskHistoryDto>> getRiskHistory(@PathVariable UUID sessionId) {
+        FlightSession session = flightSessionRepository.findById(sessionId).orElse(null);
+        if (session == null) return ResponseEntity.notFound().build();
+
+        List<RiskAssessment> assessments = riskAssessmentRepository
+                .findByCognitiveStateTelemetryFrameFlightSessionIdOrderByTimestampAsc(sessionId);
+        List<RiskHistoryDto> dtos = assessments.stream()
+                .map(r -> RiskHistoryDto.builder()
+                        .riskLevel(r.getRiskLevel().name())
+                        .aggregatedRiskScore(r.getAggregatedRiskScore())
+                        .riskEscalated(r.isRiskEscalated())
+                        .swissCheeseTriggered(r.isSwissCheeseTriggered())
+                        .timestamp(r.getTimestamp())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
     private TelemetryDto mapTelemetry(TelemetryFrame frame) {
         if (frame == null)
             return null;
@@ -86,6 +220,9 @@ public class SessionMonitoringController {
                 .altitude(frame.getAltitude())
                 .airspeed(frame.getAirspeed())
                 .turbulenceLevel(frame.getTurbulenceLevel())
+                .heartRate(frame.getHeartRate())
+                .stressIndex(frame.getStressIndex())
+                .fatigueIndex(frame.getFatigueIndex())
                 .build();
     }
 
@@ -98,6 +235,7 @@ public class SessionMonitoringController {
                 .smoothedLoad(state.getSmoothedLoad())
                 .confidenceScore(state.getConfidenceScore())
                 .errorProbability(state.getErrorProbability())
+                .fatigueTrendSlope(state.getFatigueTrendSlope())
                 .riskLevel(risk != null ? risk.getRiskLevel().name() : "UNKNOWN")
                 .build();
     }
@@ -132,6 +270,9 @@ public class SessionMonitoringController {
         private double altitude;
         private double airspeed;
         private double turbulenceLevel;
+        private double heartRate;
+        private double stressIndex;
+        private double fatigueIndex;
     }
 
     @Data
@@ -142,6 +283,7 @@ public class SessionMonitoringController {
         private double smoothedLoad;
         private double confidenceScore;
         private double errorProbability;
+        private double fatigueTrendSlope;
         private String riskLevel;
     }
 
@@ -151,5 +293,25 @@ public class SessionMonitoringController {
         private String recommendationType;
         private String message;
         private String severity;
+    }
+
+    @Data
+    @Builder
+    public static class SessionSummaryDto {
+        private UUID id;
+        private String status;
+        private String pilotName;
+        private int totalFrames;
+        private Instant createdAt;
+    }
+
+    @Data
+    @Builder
+    public static class RiskHistoryDto {
+        private String riskLevel;
+        private double aggregatedRiskScore;
+        private boolean riskEscalated;
+        private boolean swissCheeseTriggered;
+        private Instant timestamp;
     }
 }

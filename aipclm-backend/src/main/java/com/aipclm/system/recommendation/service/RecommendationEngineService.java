@@ -8,6 +8,8 @@ import com.aipclm.system.recommendation.model.Severity;
 import com.aipclm.system.recommendation.repository.AIRecommendationRepository;
 import com.aipclm.system.risk.model.RiskAssessment;
 import com.aipclm.system.risk.repository.RiskAssessmentRepository;
+import com.aipclm.system.scenario.model.*;
+import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.telemetry.model.PhaseOfFlight;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
@@ -27,13 +29,16 @@ public class RecommendationEngineService {
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final AIRecommendationRepository aiRecommendationRepository;
     private final TelemetryFrameRepository telemetryFrameRepository;
+    private final FlightScenarioRepository scenarioRepository;
 
     public RecommendationEngineService(RiskAssessmentRepository riskAssessmentRepository,
             AIRecommendationRepository aiRecommendationRepository,
-            TelemetryFrameRepository telemetryFrameRepository) {
+            TelemetryFrameRepository telemetryFrameRepository,
+            FlightScenarioRepository scenarioRepository) {
         this.riskAssessmentRepository = riskAssessmentRepository;
         this.aiRecommendationRepository = aiRecommendationRepository;
         this.telemetryFrameRepository = telemetryFrameRepository;
+        this.scenarioRepository = scenarioRepository;
     }
 
     @Transactional
@@ -102,6 +107,71 @@ public class RecommendationEngineService {
                     15.0,
                     "CRITICAL cognitive overload. Initiate go-around procedure immediately."));
             anyRuleTriggered = true;
+        }
+
+        /* ═══════════════════════════════════════════════
+         *  SCENARIO-AWARE RULES (Phase 1)
+         * ═══════════════════════════════════════════════ */
+        UUID sessionId = frame.getFlightSession().getId();
+        FlightScenario scenario = scenarioRepository.findByFlightSessionId(sessionId).orElse(null);
+
+        if (scenario != null) {
+            // Rule S1: Visibility ≤ LOW + APPROACH → REQUEST_ILS_APPROACH
+            if ((scenario.getVisibility() == VisibilityLevel.LOW
+                    || scenario.getVisibility() == VisibilityLevel.VERY_LOW
+                    || scenario.getVisibility() == VisibilityLevel.ZERO)
+                    && phase == PhaseOfFlight.APPROACH) {
+                recommendations.add(build(riskAssessment,
+                        RecommendationType.REQUEST_ILS_APPROACH,
+                        Severity.WARNING,
+                        8.0,
+                        "Low visibility (" + scenario.getVisibility() + ") during approach. Request ILS approach clearance."));
+                anyRuleTriggered = true;
+            }
+
+            // Rule S2: Emergency active + risk CRITICAL → DIVERT_TO_ALTERNATE
+            if (scenario.getEmergencyType() != EmergencyType.NONE
+                    && riskLevel == RiskLevel.CRITICAL) {
+                recommendations.add(build(riskAssessment,
+                        RecommendationType.DIVERT_TO_ALTERNATE,
+                        Severity.CRITICAL,
+                        20.0,
+                        "Emergency " + scenario.getEmergencyType() + " with CRITICAL risk. Consider diverting to nearest alternate airport."));
+                anyRuleTriggered = true;
+            }
+
+            // Rule S3: Crosswind > 25kt + LANDING → GO_AROUND_WEATHER
+            if (scenario.getCrosswindComponent() > 25.0
+                    && phase == PhaseOfFlight.LANDING) {
+                recommendations.add(build(riskAssessment,
+                        RecommendationType.GO_AROUND_WEATHER,
+                        Severity.CRITICAL,
+                        15.0,
+                        "Crosswind component " + String.format("%.0f", scenario.getCrosswindComponent())
+                                + " kt exceeds safe limits for landing. Execute go-around."));
+                anyRuleTriggered = true;
+            }
+
+            // Rule S4: THUNDERSTORM + TAKEOFF → DELAY_TAKEOFF
+            if (scenario.getWeatherCondition() == WeatherCondition.THUNDERSTORM
+                    && phase == PhaseOfFlight.TAKEOFF) {
+                recommendations.add(build(riskAssessment,
+                        RecommendationType.DELAY_TAKEOFF,
+                        Severity.WARNING,
+                        12.0,
+                        "Thunderstorm active during takeoff phase. Recommend delaying departure until weather improves."));
+                anyRuleTriggered = true;
+            }
+
+            // Rule S5: Any emergency → SQUAWK_7700
+            if (scenario.getEmergencyType() != EmergencyType.NONE) {
+                recommendations.add(build(riskAssessment,
+                        RecommendationType.SQUAWK_7700,
+                        Severity.CRITICAL,
+                        0.0,
+                        "Emergency declared: " + scenario.getEmergencyType() + ". Set transponder to SQUAWK 7700."));
+                anyRuleTriggered = true;
+            }
         }
 
         // Rule 6: No rules triggered → MONITOR_ONLY
