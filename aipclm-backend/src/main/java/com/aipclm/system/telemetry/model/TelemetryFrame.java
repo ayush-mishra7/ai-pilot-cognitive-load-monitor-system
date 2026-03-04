@@ -110,7 +110,7 @@ public class TelemetryFrame {
     private Double gazeFixationDurationMs;
     /** True if biometrics were overridden by real sensor data rather than simulated. */
     @Builder.Default
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean sensorOverride = false;
 
     private double altitudeDeviation;
