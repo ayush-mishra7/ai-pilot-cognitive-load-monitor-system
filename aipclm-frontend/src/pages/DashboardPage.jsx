@@ -102,16 +102,28 @@ export default function DashboardPage() {
   );
 
   /* ── Telemetry rows (single-pilot) ── */
+  const isSensor = !!tel.sensorOverride;
   const tRows = [
     { label: 'ALT',      val: (tel.altitude ?? 0).toFixed(0),                  unit: 'FT' },
     { label: 'AIRSPD',   val: (tel.airspeed ?? 0).toFixed(0),                  unit: 'KTS' },
-    { label: 'V/S',      val: '0',                                              unit: 'FPM' },
-    { label: 'HR',       val: (tel.heartRate ?? 0).toFixed(0),                 unit: 'BPM',  color: '#FF6B35' },
+    { label: 'HR',       val: (tel.heartRate ?? 0).toFixed(0),                 unit: 'BPM',  color: isSensor ? '#E879F9' : '#FF6B35' },
     { label: 'FATIGUE',  val: (tel.fatigueIndex ?? 0).toFixed(2),              unit: '' },
     { label: 'STRESS',   val: (tel.stressIndex ?? 0).toFixed(2),               unit: '',      color: '#FFD700' },
     { label: 'TURB',     val: ((tel.turbulenceLevel ?? 0) * 100).toFixed(1),   unit: '%',     color: '#00C2FF' },
     { label: 'ERR PROB', val: (errP * 100).toFixed(1),                         unit: '%',     color: '#FF6B35' },
   ];
+
+  /* ── Sensor biometric rows (shown when sensorOverride active) ── */
+  const sensorRows = isSensor ? [
+    tel.gsrLevel != null       && { label: 'GSR',     val: tel.gsrLevel.toFixed(1),            unit: 'µS',   color: '#E879F9' },
+    tel.spO2Level != null      && { label: 'SpO₂',    val: tel.spO2Level.toFixed(1),           unit: '%',    color: '#22D3EE' },
+    tel.skinTemperature != null && { label: 'SKIN T',  val: tel.skinTemperature.toFixed(1),     unit: '°C',   color: '#F59E0B' },
+    tel.eegAlphaPower != null  && { label: 'EEG α',   val: tel.eegAlphaPower.toFixed(1),       unit: 'µV²',  color: '#34D399' },
+    tel.eegBetaPower != null   && { label: 'EEG β',   val: tel.eegBetaPower.toFixed(1),        unit: 'µV²',  color: '#60A5FA' },
+    tel.eegThetaPower != null  && { label: 'EEG θ',   val: tel.eegThetaPower.toFixed(1),       unit: 'µV²',  color: '#A78BFA' },
+    tel.pupilDiameter != null  && { label: 'PUPIL',   val: tel.pupilDiameter.toFixed(1),       unit: 'mm',   color: '#FB923C' },
+    tel.gazeFixationDurationMs != null && { label: 'GAZE', val: tel.gazeFixationDurationMs.toFixed(0), unit: 'ms', color: '#F472B6' },
+  ].filter(Boolean) : [];
 
   /* ── Loading / waiting / not-found states ── */
   if (status === 'loading' || status === 'waiting' || status === 'not-found') {
@@ -199,6 +211,15 @@ export default function DashboardPage() {
           ) : (
             /* ── Single-pilot telemetry ── */
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+              {isSensor && (
+                <div style={{ textAlign: 'center', marginBottom: '0.2em' }}>
+                  <span style={{
+                    fontSize: '0.6rem', padding: '0.1rem 0.5rem',
+                    background: 'rgba(232,121,249,0.2)', border: '1px solid rgba(232,121,249,0.5)',
+                    borderRadius: '3px', color: '#E879F9', letterSpacing: '0.1em', animation: 'pulse 2s infinite'
+                  }}>◉ LIVE SENSOR</span>
+                </div>
+              )}
               {tRows.map((t) => (
                 <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span className="digi-label">{t.label}</span>
@@ -214,6 +235,24 @@ export default function DashboardPage() {
                   </span>
                 </div>
               ))}
+              {sensorRows.length > 0 && (
+                <>
+                  <div style={{ height: '1px', background: 'rgba(232,121,249,0.25)', margin: '0.15em 0' }} />
+                  {sensorRows.map((t) => (
+                    <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span className="digi-label" style={{ fontSize: '0.85em' }}>{t.label}</span>
+                      <span>
+                        <span className="digi-value" style={{ color: t.color, fontSize: '0.95em' }}>
+                          {t.val}
+                        </span>
+                        <span className="digi-label" style={{ marginLeft: '0.3em', fontSize: '0.75em' }}>
+                          {t.unit}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>

@@ -5,7 +5,7 @@
 <h1 align="center">AI-Pilot Cognitive Load Monitor System</h1>
 
 <p align="center">
-  <em>Full-stack real-time simulation and monitoring of pilot cognitive workload with a cockpit-grade React UI, JWT authentication, scenario-driven flight engine, expert + ML cognitive load fusion, Swiss Cheese risk model, AI-powered recommendations, and multi-pilot Crew Resource Management (CRM) simulation.</em>
+  <em>Full-stack real-time simulation and monitoring of pilot cognitive workload with a cockpit-grade React UI, JWT authentication, scenario-driven flight engine, expert + ML cognitive load fusion, Swiss Cheese risk model, AI-powered recommendations, multi-pilot Crew Resource Management (CRM) simulation, and wearable sensor integration for live biometric override.</em>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Tests-115%20Passed-brightgreen?style=flat-square&logo=junit5&logoColor=white" alt="115 Tests Passed"/>
   <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square&logo=github-actions&logoColor=white" alt="Build Passing"/>
-  <img src="https://img.shields.io/badge/Phase-4%20Complete-blueviolet?style=flat-square" alt="Phase 4"/>
+  <img src="https://img.shields.io/badge/Phase-5%20Complete-blueviolet?style=flat-square" alt="Phase 5"/>
 </p>
 
 ---
@@ -131,6 +131,10 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 | 🔄 **Cross-Crew Fatigue Propagation** | Stress contagion (0.15 factor) and fatigue convergence (0.10 factor) between crew members |
 | 📊 **Dual Cockpit Dashboard** | Side-by-side Captain/FO biometrics, dual cognitive load gauges, and real-time CRM HUD overlay |
 | 📈 **CRM Analytics** | CRM effectiveness, communication, and fatigue symmetry sparklines with Captain vs FO load overlay |
+| 🩺 **Wearable Sensor Integration** | Register, connect, and calibrate 6 physiological sensor types (HRM, EEG, Eye Tracker, GSR, Pulse Oximeter, Skin Temp) with live data ingestion |
+| 📡 **Sensor Data Override** | Real-time biometric override — live sensor readings replace simulated values (HR, EEG bands, pupil diameter, GSR, SpO2, skin temperature) |
+| 🔌 **Quick-Register Preset Devices** | One-click registration of 6 industry-standard devices (Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4) |
+| ◉ **LIVE SENSOR Dashboard** | Animated "LIVE SENSOR" badge and dedicated biometric rows (GSR, SpO2, Skin Temp, EEG α/β/θ, Pupil, Gaze) on cockpit dashboard |
 
 ---
 
@@ -155,6 +159,13 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 │  │  │  JWT +   │  │  Engine  │  │  (1Hz tick)   │  │  Controller  │  │    │
 │  │  │  BCrypt  │  │  9-axis  │  │  + WS Push    │  │  + WS Bcast  │  │    │
 │  │  └──────────┘  └──────────┘  └──────┬────────┘  └──────────────┘  │    │
+│  │                                      │                              │    │
+│  │  ┌──────────────────────────────────────────────────────────────┐   │    │
+│  │  │         SENSOR INTEGRATION (Phase 5)                         │   │    │
+│  │  │  SensorIngestionService · SensorIngestionController           │   │    │
+│  │  │  SensorDevice + SensorReading entities                       │   │    │
+│  │  │  6 sensor types · Auto-calibration · Biometric override      │   │    │
+│  │  └──────────────────────────────────────────────────────────────┘   │    │
 │  │                                      │                              │    │
 │  │                              ┌──────▼────────┐                     │    │
 │  │                              │  Orchestrator  │ (Atomic Tx)        │    │
@@ -199,6 +210,8 @@ Stage 1 ─ Telemetry Generation
    │  scenario-aware modifiers (weather, emergency, visibility multipliers)
    │  Crew Mode: generates two frames (Captain + FO) with shared cockpit
    │  state and PF/PM role differentiation
+   │  Sensor Mode: applySensorOverrides() replaces simulated biometrics
+   │  with live sensor readings (HR, EEG, Eye, GSR, SpO2, Skin Temp)
    ▼
 Stage 2 ─ Cognitive Load Computation
    │  CognitiveLoadService computes expert load (weighted sum of 12 factors),
@@ -245,6 +258,21 @@ Stage 5 ─ Persist & Commit
 | 💓 Physiological | `heartRate > 120 AND stressIndex > 60` |
 
 > **Rule**: All 4 barriers must be breached simultaneously + `smoothedLoad > 70` to trigger Swiss Cheese CRITICAL escalation.
+
+### Sensor Override Pipeline (Sensor Mode)
+
+When a session runs in **sensor mode**, `applySensorOverrides()` replaces simulated biometrics with live sensor readings:
+
+| Sensor Type | Override Target | Normalization Range | Unit |
+|-------------|----------------|:-------------------:|------|
+| 🫀 Heart Rate Monitor | `heartRate` | 30 – 240 | BPM |
+| 🧠 EEG Headband | `eegAlpha/Beta/ThetaPower` | 0 – 100 | µV² |
+| 👁️ Eye Tracker | `pupilDiameter`, `gazeFixation`, `blinkRate` | 0 – 20 | mm |
+| ⚡ GSR Sensor | `gsrLevel` | 0 – 40 | µS |
+| 🩸 Pulse Oximeter | `spO2Level` | 70 – 100 | % |
+| 🌡️ Skin Temperature | `skinTemperature` | 30 – 42 | °C |
+
+> **Preset Devices**: Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4
 
 ### CRM Assessment Metrics (Crew Mode)
 
@@ -444,7 +472,7 @@ ai-pclm/
 │       │   └── telemetry/
 │       │       ├── model/
 │       │       │   ├── PhaseOfFlight.java
-│       │       │   └── TelemetryFrame.java          # 30+ sensor fields
+│       │       │   └── TelemetryFrame.java          # 40+ sensor fields (incl. sensor biometrics)
 │       │       └── repository/
 │       │           └── TelemetryFrameRepository.java
 │       │
@@ -626,7 +654,25 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/test/simulation/start-crew?captainProfile=X&foProfile=Y` | Start crew-mode session (Captain + FO) |
+| `POST` | `/api/test/simulation/start-sensor?profile=X` | Start sensor-mode session |
 | `GET` | `/api/session/{id}/crm-history` | Get all CRM assessment frames for session |
+
+### Sensor Integration (`/api/sensor`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/sensor/device` | Register a new sensor device |
+| `GET` | `/api/sensor/device/list` | List all sensor devices |
+| `GET` | `/api/sensor/device/{id}` | Get sensor device by ID |
+| `PUT` | `/api/sensor/device/{id}/connect/{sessionId}` | Connect device to a session (auto-calibrate) |
+| `PUT` | `/api/sensor/device/{id}/disconnect` | Disconnect device from session |
+| `PUT` | `/api/sensor/device/{id}/calibrate` | Re-calibrate device |
+| `POST` | `/api/sensor/reading` | Ingest a single sensor reading |
+| `POST` | `/api/sensor/reading/batch` | Ingest batch of sensor readings |
+| `GET` | `/api/sensor/session/{id}/status` | Get sensor status for a session |
+| `GET` | `/api/sensor/session/{id}/latest-values` | Get latest normalized values per sensor type |
+| `GET` | `/api/sensor/session/{id}/readings` | Get all readings for a session |
+| `POST` | `/api/sensor/quick-register` | One-click register all 6 preset devices |
 
 ### ML Inference Service (`:8001`)
 
@@ -646,6 +692,7 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | `/topic/session/{id}/cognitive-history` | Cognitive state history array | Single + Crew |
 | `/topic/session/{id}/risk-history` | Risk assessment history array | Single + Crew |
 | `/topic/session/{id}/crm-history` | CRM assessment history array | Crew only |
+| `/topic/session/{id}/sensor-status` | Sensor device connection status | Sensor only |
 | `/topic/sessions` | Active session list | Global |
 
 ---
@@ -705,12 +752,13 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 | **1** | **Scenario Engine** | ✅ Done | 9-axis flight scenario configuration, 3 presets (NORMAL/MODERATE/EXTREME), scenario-aware simulation modifiers, 5 new recommendation types, cockpit dashboard, analytics, ATC radar |
 | **3** | **Advanced ML Pipeline** | ✅ Done | Trained GradientBoosting model (R²=0.981, MAE=2.13) on 50K synthetic dataset. Confidence-weighted expert–ML fusion, EMA smoothing (α=0.3), fatigue trend slope (OLS on 10-frame window), Swiss Cheese 4-barrier alignment score. SHAP TreeExplainer with `/explain` endpoint. Dynamic confidence via uncertainty model. Cockpit SHAP driver bars and Swiss Cheese sparkline on Analytics page. |
 | **4** | **Multi-Pilot & CRM Simulation** | ✅ Done | Captain + First Officer dual-crew cockpit with shared cockpit state and PF/PM role differentiation. 7-metric CRM assessment engine (communication, workload distribution, authority gradient, situational awareness, fatigue symmetry, cross-crew stress contagion, CRM effectiveness). Cross-crew fatigue propagation (stress contagion 0.15, fatigue convergence 0.10). Dual-crew dashboard with side-by-side biometrics, dual cognitive load gauges, and real-time CRM HUD. CRM analytics sparklines on Analytics page. CrewAssignment + CrmAssessment entities, crew-aware WebSocket broadcast. |
+| **5** | **Wearable & Sensor Integration** | ✅ Done | 6-type sensor device registry (HRM, EEG, Eye Tracker, GSR, Pulse Oximeter, Skin Temp) with auto-calibration and connection lifecycle. SensorDevice + SensorReading entities with normalized ingestion. Live biometric override — `applySensorOverrides()` replaces simulated telemetry (HR, EEG α/β/θ bands, pupil diameter, gaze fixation, blink rate, GSR, SpO₂, skin temperature) with real sensor data. Quick-register preset devices (Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4). Sensor mode toggle on Home page, animated LIVE SENSOR badge + dedicated biometric rows on Dashboard. WebSocket sensor status broadcast. |
 
 ### Upcoming Phases
 
 | Phase | Name | Status | Description |
 |:-----:|------|:------:|-------------|
-| **5** | **Wearable & Sensor Integration** | � Next | Ingest real physiological data from Garmin HRM, EEG headbands, and eye trackers. Replace simulated biometrics with live sensor feeds. |
+
 | **6** | **Containerization & Orchestration** | 📋 Planned | **Docker** — Multi-stage Dockerfiles for backend, frontend, and ML service. Docker Compose for single-command local dev startup. **Kubernetes** — Helm charts for production deployment with auto-scaling, health probes, ConfigMaps, and Secrets. Horizontal Pod Autoscaler for ML inference under load. |
 | **7** | **CI/CD & Observability** | 📋 Planned | GitHub Actions pipeline (build → test → Docker push → deploy). Prometheus + Grafana monitoring. OpenTelemetry + Jaeger distributed tracing across Spring Boot ↔ FastAPI boundaries. |
 | **8** | **Dynamic Weather & ADS-B** | 📋 Planned | Real-time METAR/TAF weather API integration. ADS-B live feed ingestion for shadow-monitoring actual flights in research mode. |

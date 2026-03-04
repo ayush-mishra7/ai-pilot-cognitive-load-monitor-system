@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { startSession, startCrewSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario } from '../services/api';
+import { startSession, startCrewSession, startSensorSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario, quickRegisterSensors, listSensorDevices, connectSensorDevice } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import ScenarioConfigurator, { DEFAULT_SCENARIO } from '../components/ScenarioConfigurator';
@@ -20,6 +20,7 @@ export default function HomePage() {
   const [backendUp, setBackendUp] = useState(null);          // null = checking
   const [filter, setFilter] = useState('ALL');                // ALL | RUNNING | COMPLETED
   const [crewMode, setCrewMode] = useState(false);            // CRM crew toggle
+  const [sensorMode, setSensorMode] = useState(false);        // Wearable sensor toggle
   const [foProfileType, setFoProfileType] = useState('NOVICE'); // FO profile
   const pollRef = useRef(null);
 
@@ -67,6 +68,18 @@ export default function HomePage() {
       if (crewMode) {
         const result = await startCrewSession(profileType, foProfileType);
         sessionId = result.sessionId;
+      } else if (sensorMode) {
+        const result = await startSensorSession(profileType);
+        sessionId = result.sessionId;
+        // Auto-register and connect all 6 sensors
+        try {
+          const devices = await quickRegisterSensors();
+          if (Array.isArray(devices)) {
+            for (const d of devices) {
+              try { await connectSensorDevice(d.id, sessionId); } catch { /* ok */ }
+            }
+          }
+        } catch { /* sensor setup optional */ }
       } else {
         sessionId = await startSession(profileType);
       }
@@ -175,18 +188,30 @@ export default function HomePage() {
               Select pilot profile and launch a new simulation.
             </p>
 
-            {/* Crew mode toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            {/* Crew mode & Sensor mode toggles */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               <button
-                onClick={() => setCrewMode((v) => !v)}
+                onClick={() => { setCrewMode((v) => !v); setSensorMode(false); }}
                 className={`hud-btn ${crewMode ? 'hud-btn--primary' : 'hud-btn--ghost'}`}
                 style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}
               >
                 {crewMode ? '✈ CREW MODE' : '✈ SINGLE PILOT'}
               </button>
+              <button
+                onClick={() => { setSensorMode((v) => !v); setCrewMode(false); }}
+                className={`hud-btn ${sensorMode ? 'hud-btn--primary' : 'hud-btn--ghost'}`}
+                style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}
+              >
+                {sensorMode ? '🩺 SENSOR MODE' : '🩺 NO SENSORS'}
+              </button>
               {crewMode && (
                 <span style={{ fontSize: '0.6rem', color: '#00BFFF', letterSpacing: '0.05em' }}>
                   Captain + First Officer · CRM enabled
+                </span>
+              )}
+              {sensorMode && (
+                <span style={{ fontSize: '0.6rem', color: '#E879F9', letterSpacing: '0.05em' }}>
+                  All 6 wearable sensors auto-connected
                 </span>
               )}
             </div>
@@ -364,6 +389,13 @@ export default function HomePage() {
                             background: 'rgba(0,191,255,0.15)', border: '1px solid rgba(0,191,255,0.4)',
                             borderRadius: '3px', color: '#00BFFF', letterSpacing: '0.08em'
                           }}>CREW</span>
+                        )}
+                        {s.sensorMode && (
+                          <span style={{
+                            marginLeft: '0.4rem', fontSize: '0.55rem', padding: '0.1rem 0.35rem',
+                            background: 'rgba(232,121,249,0.15)', border: '1px solid rgba(232,121,249,0.4)',
+                            borderRadius: '3px', color: '#E879F9', letterSpacing: '0.08em'
+                          }}>SENSOR</span>
                         )}
                       </div>
                     </div>

@@ -84,10 +84,48 @@ export const startSession = (profileType = 'NOVICE') =>
 export const startCrewSession = (captainProfile = 'EXPERIENCED', foProfile = 'NOVICE') =>
   api.post(`/api/test/simulation/start-crew?captainProfile=${captainProfile}&foProfile=${foProfile}`).then((res) => res.data);
 
+/** Starts a sensor-enabled session. */
+export const startSensorSession = (profileType = 'EXPERIENCED') =>
+  api.post(`/api/test/simulation/start-sensor?profileType=${profileType}`).then((res) => res.data);
+
 export const startSchedule = (sessionId) =>
   api.post(`/api/test/simulation/${sessionId}/start-schedule`).then((res) => res.data);
 
 export const stopSession = (sessionId) =>
   api.post(`/api/test/simulation/${sessionId}/stop-schedule`).then((res) => res.data);
+
+/* ─── Sensor Endpoints ─── */
+
+/** Quick-register all 6 preset sensor devices. */
+export const quickRegisterSensors = () =>
+  api.post('/api/sensor/quick-register').then((res) => res.data);
+
+/** List all registered sensor devices. */
+export const listSensorDevices = () =>
+  api.get('/api/sensor/device/list').then((res) => res.data);
+
+/** Connect a sensor device to a session. */
+export const connectSensorDevice = (deviceId, sessionId) =>
+  api.put(`/api/sensor/device/${deviceId}/connect/${sessionId}`).then((res) => res.data);
+
+/** Disconnect a sensor device. */
+export const disconnectSensorDevice = (deviceId) =>
+  api.put(`/api/sensor/device/${deviceId}/disconnect`).then((res) => res.data);
+
+/** Get sensor status for a session. */
+export const getSensorStatus = (sessionId) =>
+  api.get(`/api/sensor/session/${sessionId}/status`).then((res) => res.data);
+
+/** Get latest sensor values for a session. */
+export const getLatestSensorValues = (sessionId) =>
+  api.get(`/api/sensor/session/${sessionId}/latest-values`).then((res) => res.data);
+
+/** Ingest a single sensor reading. */
+export const ingestSensorReading = (deviceId, rawValue, unit, signalQuality = 1.0) =>
+  api.post('/api/sensor/reading', { deviceId, rawValue, unit, signalQuality }).then((res) => res.data);
+
+/** Ingest batch sensor readings. */
+export const ingestSensorBatch = (deviceId, readings) =>
+  api.post('/api/sensor/reading/batch', { deviceId, readings }).then((res) => res.data);
 
 export default api;

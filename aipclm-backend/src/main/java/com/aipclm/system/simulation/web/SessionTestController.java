@@ -103,6 +103,33 @@ public class SessionTestController {
         }
 
         /**
+         * Starts a sensor-enabled session. Creates a pilot and a session with sensorMode=true.
+         * After starting, use /api/sensor/quick-register then connect devices to start
+         * feeding real sensor data that overrides simulated biometrics.
+         */
+        @PostMapping("/start-sensor")
+        public ResponseEntity<Map<String, Object>> startSensorSession(
+                        @RequestParam(defaultValue = "EXPERIENCED") PilotProfileType profileType) {
+                Pilot pilot = pilotRepository.save(Pilot.builder()
+                                .fullName("Sensor Pilot " + profileType)
+                                .profileType(profileType)
+                                .baselineStressSensitivity(1.0)
+                                .baselineFatigueRate(1.0)
+                                .build());
+                FlightSession session = flightSessionRepository.save(FlightSession.builder()
+                                .pilot(pilot)
+                                .sessionStartTime(Instant.now())
+                                .status(FlightSessionStatus.RUNNING)
+                                .sensorMode(true)
+                                .build());
+                webSocketBroadcastService.broadcastSessionList();
+                return ResponseEntity.ok(Map.of(
+                                "sessionId", session.getId(),
+                                "sensorMode", true,
+                                "pilotId", pilot.getId()));
+        }
+
+        /**
          * Starts a crew-mode session with Captain + First Officer.
          * Creates two pilots and two crew assignments. Captain is Pilot Flying by default.
          */

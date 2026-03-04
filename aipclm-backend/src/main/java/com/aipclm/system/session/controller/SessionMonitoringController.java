@@ -61,6 +61,8 @@ public class SessionMonitoringController {
         entityManager.createNativeQuery("DELETE FROM ai_recommendation").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM risk_assessment").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM cognitive_state").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM sensor_reading").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM sensor_device").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM telemetry_frame").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM crm_assessment").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM crew_assignments").executeUpdate();
@@ -103,6 +105,14 @@ public class SessionMonitoringController {
 
         entityManager.createNativeQuery(
             "DELETE FROM telemetry_frame WHERE flight_session_id = :sid")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM sensor_reading WHERE flight_session_id = :sid")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM sensor_device WHERE flight_session_id = :sid")
             .setParameter("sid", sessionId).executeUpdate();
 
         entityManager.createNativeQuery(
@@ -185,6 +195,7 @@ public class SessionMonitoringController {
                         .totalFrames(s.getTotalFramesGenerated())
                         .createdAt(s.getCreatedAt())
                         .crewMode(s.isCrewMode())
+                        .sensorMode(s.isSensorMode())
                         .build())
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
@@ -311,6 +322,15 @@ public class SessionMonitoringController {
                 .heartRate(frame.getHeartRate())
                 .stressIndex(frame.getStressIndex())
                 .fatigueIndex(frame.getFatigueIndex())
+                .gsrLevel(frame.getGsrLevel())
+                .spO2Level(frame.getSpO2Level())
+                .skinTemperature(frame.getSkinTemperature())
+                .eegAlphaPower(frame.getEegAlphaPower())
+                .eegBetaPower(frame.getEegBetaPower())
+                .eegThetaPower(frame.getEegThetaPower())
+                .pupilDiameter(frame.getPupilDiameter())
+                .gazeFixationDurationMs(frame.getGazeFixationDurationMs())
+                .sensorOverride(frame.isSensorOverride())
                 .build();
     }
 
@@ -362,6 +382,16 @@ public class SessionMonitoringController {
         private double heartRate;
         private double stressIndex;
         private double fatigueIndex;
+        // Sensor biometrics
+        private Double gsrLevel;
+        private Double spO2Level;
+        private Double skinTemperature;
+        private Double eegAlphaPower;
+        private Double eegBetaPower;
+        private Double eegThetaPower;
+        private Double pupilDiameter;
+        private Double gazeFixationDurationMs;
+        @Builder.Default private boolean sensorOverride = false;
     }
 
     @Data
@@ -394,6 +424,7 @@ public class SessionMonitoringController {
         private int totalFrames;
         private Instant createdAt;
         @Builder.Default private boolean crewMode = false;
+        @Builder.Default private boolean sensorMode = false;
     }
 
     @Data

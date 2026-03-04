@@ -63,6 +63,11 @@ public class FlightSession {
     @Column(nullable = false)
     private boolean crewMode = false;
 
+    /** When true, session uses live wearable sensor data instead of simulated biometrics. */
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean sensorMode = false;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 

@@ -34,6 +34,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/session/health").permitAll()
 
+                // Sensor endpoints — permit all for device integration
+                .requestMatchers("/api/sensor/**").permitAll()
+
                 // WebSocket endpoint — SockJS handshake must be unauthenticated
                 .requestMatchers("/ws/**").permitAll()
 

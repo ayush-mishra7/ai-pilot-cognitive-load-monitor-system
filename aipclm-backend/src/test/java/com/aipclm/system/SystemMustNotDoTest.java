@@ -18,6 +18,7 @@ import com.aipclm.system.risk.service.RiskEngineService;
 import com.aipclm.system.crm.repository.CrewAssignmentRepository;
 import com.aipclm.system.crm.service.CrmService;
 import com.aipclm.system.scenario.repository.FlightScenarioRepository;
+import com.aipclm.system.sensor.service.SensorIngestionService;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
@@ -198,13 +199,15 @@ class SystemMustNotDoTest {
         @Mock private FlightScenarioRepository scenarioRepository;
         @Mock private CrewAssignmentRepository crewAssignmentRepository;
         @Mock private CrmService crmService;
+        @Mock private SensorIngestionService sensorIngestionService;
 
         private SimulationEngineService engineService;
 
         @BeforeEach
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
-                    telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService);
+                    telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService,
+                    sensorIngestionService);
         }
 
         @Test
@@ -524,13 +527,15 @@ class SystemMustNotDoTest {
         @Mock private FlightScenarioRepository scenarioRepository;
         @Mock private CrewAssignmentRepository crewAssignmentRepository;
         @Mock private CrmService crmService;
+        @Mock private SensorIngestionService sensorIngestionService;
 
         private SimulationEngineService engineService;
 
         @BeforeEach
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
-                    telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService);
+                    telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService,
+                    sensorIngestionService);
         }
 
         @Test

@@ -12,6 +12,7 @@ import com.aipclm.system.telemetry.model.PhaseOfFlight;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.crm.repository.CrewAssignmentRepository;
 import com.aipclm.system.crm.service.CrmService;
+import com.aipclm.system.sensor.service.SensorIngestionService;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,7 @@ class SimulationEngineServiceTest {
     @Mock private FlightScenarioRepository scenarioRepository;
     @Mock private CrewAssignmentRepository crewAssignmentRepository;
     @Mock private CrmService crmService;
+    @Mock private SensorIngestionService sensorIngestionService;
 
     @InjectMocks private SimulationEngineService service;
 

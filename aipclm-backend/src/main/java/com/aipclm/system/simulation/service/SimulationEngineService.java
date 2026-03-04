@@ -8,6 +8,8 @@ import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.pilot.repository.PilotRepository;
 import com.aipclm.system.scenario.model.*;
 import com.aipclm.system.scenario.repository.FlightScenarioRepository;
+import com.aipclm.system.sensor.model.SensorType;
+import com.aipclm.system.sensor.service.SensorIngestionService;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -32,6 +35,7 @@ public class SimulationEngineService {
     private final FlightScenarioRepository scenarioRepository;
     private final CrewAssignmentRepository crewAssignmentRepository;
     private final CrmService crmService;
+    private final SensorIngestionService sensorIngestionService;
 
     private static final java.util.Random RANDOM = new java.util.Random(42); // Seeded for determinism
 
@@ -40,13 +44,15 @@ public class SimulationEngineService {
             TelemetryFrameRepository telemetryFrameRepository,
             FlightScenarioRepository scenarioRepository,
             CrewAssignmentRepository crewAssignmentRepository,
-            CrmService crmService) {
+            CrmService crmService,
+            SensorIngestionService sensorIngestionService) {
         this.flightSessionRepository = flightSessionRepository;
         this.pilotRepository = pilotRepository;
         this.telemetryFrameRepository = telemetryFrameRepository;
         this.scenarioRepository = scenarioRepository;
         this.crewAssignmentRepository = crewAssignmentRepository;
         this.crmService = crmService;
+        this.sensorIngestionService = sensorIngestionService;
     }
 
     @Transactional
@@ -371,13 +377,16 @@ public class SimulationEngineService {
                 .rollInstability(rollInstability)
                 .build();
 
+        applySensorOverrides(frame, sessionId);
+
         telemetryFrameRepository.save(frame);
 
         session.setTotalFramesGenerated(nextFrameNumber);
         flightSessionRepository.save(session);
 
-        log.info("Frame {} successfully generated and saved. Phase: {}, Alt: {}, Fatigue: {}",
-                nextFrameNumber, phaseOfFlight, Math.round(altitude), String.format("%.1f", fatigueIndex));
+        log.info("Frame {} successfully generated and saved. Phase: {}, Alt: {}, Fatigue: {}{}",
+                nextFrameNumber, phaseOfFlight, Math.round(altitude), String.format("%.1f", fatigueIndex),
+                frame.isSensorOverride() ? " [SENSOR]" : "");
     }
 
     // ───────────────────── CREW MODE FRAME GENERATION ─────────────────────
@@ -446,17 +455,21 @@ public class SimulationEngineService {
                 foPilot, CrewRole.FIRST_OFFICER, !captainIsFlying, scenario,
                 currentSimulationTimeSeconds, foPropagation);
 
+        applySensorOverrides(captainFrame, sessionId);
+        applySensorOverrides(foFrame, sessionId);
+
         telemetryFrameRepository.save(captainFrame);
         telemetryFrameRepository.save(foFrame);
 
         session.setTotalFramesGenerated(nextFrameNumber);
         flightSessionRepository.save(session);
 
-        log.info("Crew frames {} generated. Captain fatigue={} FO fatigue={} Phase={}",
+        log.info("Crew frames {} generated. Captain fatigue={} FO fatigue={} Phase={}{}",
                 nextFrameNumber,
                 String.format("%.1f", captainFrame.getFatigueIndex()),
                 String.format("%.1f", foFrame.getFatigueIndex()),
-                phaseOfFlight);
+                phaseOfFlight,
+                captainFrame.isSensorOverride() ? " [SENSOR]" : "");
     }
 
     /**
@@ -706,6 +719,59 @@ public class SimulationEngineService {
                 .pitchInstability(pitchInstability)
                 .rollInstability(rollInstability)
                 .build();
+    }
+
+    // ───────────────────── SENSOR OVERRIDE ─────────────────────
+
+    /**
+     * If the session has connected wearable sensors, override the simulated
+     * biometric values with real sensor readings.
+     */
+    private void applySensorOverrides(TelemetryFrame frame, UUID sessionId) {
+        try {
+            Map<SensorType, Double> sensorValues = sensorIngestionService.getLatestSensorValues(sessionId);
+            if (sensorValues.isEmpty()) return;
+
+            boolean overridden = false;
+
+            if (sensorValues.containsKey(SensorType.HEART_RATE_MONITOR)) {
+                frame.setHeartRate(sensorValues.get(SensorType.HEART_RATE_MONITOR));
+                overridden = true;
+            }
+            if (sensorValues.containsKey(SensorType.EEG_HEADBAND)) {
+                double eegVal = sensorValues.get(SensorType.EEG_HEADBAND);
+                // Split into alpha/beta/theta approximation bands
+                frame.setEegAlphaPower(eegVal * 0.40);
+                frame.setEegBetaPower(eegVal * 0.35);
+                frame.setEegThetaPower(eegVal * 0.25);
+                overridden = true;
+            }
+            if (sensorValues.containsKey(SensorType.EYE_TRACKER)) {
+                double eyeVal = sensorValues.get(SensorType.EYE_TRACKER);
+                frame.setPupilDiameter(eyeVal);
+                frame.setGazeFixationDurationMs(200.0 + eyeVal * 30);
+                frame.setBlinkRate(Math.max(5, 20 - eyeVal * 0.8));
+                overridden = true;
+            }
+            if (sensorValues.containsKey(SensorType.GSR_SENSOR)) {
+                frame.setGsrLevel(sensorValues.get(SensorType.GSR_SENSOR));
+                overridden = true;
+            }
+            if (sensorValues.containsKey(SensorType.PULSE_OXIMETER)) {
+                frame.setSpO2Level(sensorValues.get(SensorType.PULSE_OXIMETER));
+                overridden = true;
+            }
+            if (sensorValues.containsKey(SensorType.SKIN_TEMPERATURE_SENSOR)) {
+                frame.setSkinTemperature(sensorValues.get(SensorType.SKIN_TEMPERATURE_SENSOR));
+                overridden = true;
+            }
+
+            if (overridden) {
+                frame.setSensorOverride(true);
+            }
+        } catch (Exception e) {
+            log.warn("Sensor override failed for session {}: {}", sessionId, e.getMessage());
+        }
     }
 
     private PhaseOfFlight determinePhaseOfFlight(int timeSeconds) {

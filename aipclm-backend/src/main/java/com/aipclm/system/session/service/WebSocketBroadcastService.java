@@ -145,6 +145,7 @@ public class WebSocketBroadcastService {
                             .totalFrames(s.getTotalFramesGenerated())
                             .createdAt(s.getCreatedAt())
                             .crewMode(s.isCrewMode())
+                            .sensorMode(s.isSensorMode())
                             .build())
                     .collect(Collectors.toList());
             messagingTemplate.convertAndSend("/topic/sessions", summaries);
@@ -154,6 +155,27 @@ public class WebSocketBroadcastService {
     }
 
     // ───────────────────── DTO Builders ─────────────────────
+
+    private TelemetryMessage buildTelemetryMessage(TelemetryFrame frame) {
+        return TelemetryMessage.builder()
+                .phaseOfFlight(frame.getPhaseOfFlight().name())
+                .altitude(frame.getAltitude())
+                .airspeed(frame.getAirspeed())
+                .turbulenceLevel(frame.getTurbulenceLevel())
+                .heartRate(frame.getHeartRate())
+                .stressIndex(frame.getStressIndex())
+                .fatigueIndex(frame.getFatigueIndex())
+                .gsrLevel(frame.getGsrLevel())
+                .spO2Level(frame.getSpO2Level())
+                .skinTemperature(frame.getSkinTemperature())
+                .eegAlphaPower(frame.getEegAlphaPower())
+                .eegBetaPower(frame.getEegBetaPower())
+                .eegThetaPower(frame.getEegThetaPower())
+                .pupilDiameter(frame.getPupilDiameter())
+                .gazeFixationDurationMs(frame.getGazeFixationDurationMs())
+                .sensorOverride(frame.isSensorOverride())
+                .build();
+    }
 
     /**
      * Attaches crew-specific data to the state message for crew-mode sessions.
@@ -174,24 +196,8 @@ public class WebSocketBroadcastService {
                         .findByTelemetryFrameId(foFrame.getId()).orElse(null);
 
                 stateMsg.setCrewMode(true);
-                stateMsg.setCaptainTelemetry(TelemetryMessage.builder()
-                        .phaseOfFlight(captainFrame.getPhaseOfFlight().name())
-                        .altitude(captainFrame.getAltitude())
-                        .airspeed(captainFrame.getAirspeed())
-                        .turbulenceLevel(captainFrame.getTurbulenceLevel())
-                        .heartRate(captainFrame.getHeartRate())
-                        .stressIndex(captainFrame.getStressIndex())
-                        .fatigueIndex(captainFrame.getFatigueIndex())
-                        .build());
-                stateMsg.setFoTelemetry(TelemetryMessage.builder()
-                        .phaseOfFlight(foFrame.getPhaseOfFlight().name())
-                        .altitude(foFrame.getAltitude())
-                        .airspeed(foFrame.getAirspeed())
-                        .turbulenceLevel(foFrame.getTurbulenceLevel())
-                        .heartRate(foFrame.getHeartRate())
-                        .stressIndex(foFrame.getStressIndex())
-                        .fatigueIndex(foFrame.getFatigueIndex())
-                        .build());
+                stateMsg.setCaptainTelemetry(buildTelemetryMessage(captainFrame));
+                stateMsg.setFoTelemetry(buildTelemetryMessage(foFrame));
 
                 if (captainCog != null) {
                     stateMsg.setCaptainCognitive(CognitiveStateMessage.builder()
@@ -246,15 +252,7 @@ public class WebSocketBroadcastService {
                 .sessionId(sessionId)
                 .frameNumber(frame.getFrameNumber())
                 .timestamp(frame.getTimestamp())
-                .telemetry(TelemetryMessage.builder()
-                        .phaseOfFlight(frame.getPhaseOfFlight().name())
-                        .altitude(frame.getAltitude())
-                        .airspeed(frame.getAirspeed())
-                        .turbulenceLevel(frame.getTurbulenceLevel())
-                        .heartRate(frame.getHeartRate())
-                        .stressIndex(frame.getStressIndex())
-                        .fatigueIndex(frame.getFatigueIndex())
-                        .build())
+                .telemetry(buildTelemetryMessage(frame))
                 .cognitiveState(cogState != null ? CognitiveStateMessage.builder()
                         .expertComputedLoad(cogState.getExpertComputedLoad())
                         .mlPredictedLoad(cogState.getMlPredictedLoad())
@@ -326,6 +324,16 @@ public class WebSocketBroadcastService {
         private double heartRate;
         private double stressIndex;
         private double fatigueIndex;
+        // Sensor biometrics (null when no sensor connected)
+        private Double gsrLevel;
+        private Double spO2Level;
+        private Double skinTemperature;
+        private Double eegAlphaPower;
+        private Double eegBetaPower;
+        private Double eegThetaPower;
+        private Double pupilDiameter;
+        private Double gazeFixationDurationMs;
+        @Builder.Default private boolean sensorOverride = false;
     }
 
     @Data @Builder
@@ -376,6 +384,7 @@ public class WebSocketBroadcastService {
         private int totalFrames;
         private Instant createdAt;
         @Builder.Default private boolean crewMode = false;
+        @Builder.Default private boolean sensorMode = false;
     }
 
     @Data @Builder

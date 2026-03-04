@@ -83,6 +83,36 @@ public class TelemetryFrame {
     private double fatigueIndex;
     private double stressIndex;
 
+    // ── Wearable sensor biometrics (Phase 5) ──
+    /** Galvanic skin response / electro-dermal activity in µS. Null when no GSR sensor. */
+    @Column
+    private Double gsrLevel;
+    /** Blood-oxygen saturation percentage (SpO2). Null when no pulse-ox sensor. */
+    @Column
+    private Double spO2Level;
+    /** Skin temperature in °C. Null when no temp sensor. */
+    @Column
+    private Double skinTemperature;
+    /** EEG alpha-band (8-13 Hz) power in µV². Null when no EEG sensor. */
+    @Column
+    private Double eegAlphaPower;
+    /** EEG beta-band (13-30 Hz) power in µV². Null when no EEG sensor. */
+    @Column
+    private Double eegBetaPower;
+    /** EEG theta-band (4-8 Hz) power in µV². Null when no EEG sensor. */
+    @Column
+    private Double eegThetaPower;
+    /** Pupil diameter in mm from eye tracker. Null when no eye tracker. */
+    @Column
+    private Double pupilDiameter;
+    /** Gaze fixation duration in ms from eye tracker. Null when no eye tracker. */
+    @Column
+    private Double gazeFixationDurationMs;
+    /** True if biometrics were overridden by real sensor data rather than simulated. */
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean sensorOverride = false;
+
     private double altitudeDeviation;
     private double verticalSpeedInstability;
     private double airspeedDeviation;
