@@ -15,6 +15,8 @@ import com.aipclm.system.risk.repository.RiskAssessmentRepository;
 import com.aipclm.system.risk.service.RiskEngineService;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
+import com.aipclm.system.crm.service.CrmService;
+import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,6 +47,8 @@ class SimulationOrchestratorServiceTest {
     @Mock private TelemetryFrameRepository telemetryFrameRepository;
     @Mock private CognitiveStateRepository cognitiveStateRepository;
     @Mock private RiskAssessmentRepository riskAssessmentRepository;
+    @Mock private FlightSessionRepository flightSessionRepository;
+    @Mock private CrmService crmService;
 
     @InjectMocks private SimulationOrchestratorService orchestrator;
 
@@ -61,9 +65,12 @@ class SimulationOrchestratorServiceTest {
         frame = TestFixtures.cruiseFrame(session, 1);
         cogState = TestFixtures.cognitiveState(frame, 30, 32, 0.85);
         riskAssessment = TestFixtures.riskAssessment(cogState, RiskLevel.LOW, false);
+        // Orchestrator now looks up the session first — stub for all tests
+        lenient().when(flightSessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
     }
 
     private void stubFullPipeline() {
+        when(flightSessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
         doNothing().when(simulationEngineService).generateNextFrame(session.getId());
         when(telemetryFrameRepository.findTopByFlightSessionIdOrderByFrameNumberDesc(session.getId()))
                 .thenReturn(Optional.of(frame));

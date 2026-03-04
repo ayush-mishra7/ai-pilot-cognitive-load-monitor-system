@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { startSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario } from '../services/api';
+import { startSession, startCrewSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import ScenarioConfigurator, { DEFAULT_SCENARIO } from '../components/ScenarioConfigurator';
@@ -19,6 +19,8 @@ export default function HomePage() {
   const [scenarioData, setScenarioData] = useState({ ...DEFAULT_SCENARIO });
   const [backendUp, setBackendUp] = useState(null);          // null = checking
   const [filter, setFilter] = useState('ALL');                // ALL | RUNNING | COMPLETED
+  const [crewMode, setCrewMode] = useState(false);            // CRM crew toggle
+  const [foProfileType, setFoProfileType] = useState('NOVICE'); // FO profile
   const pollRef = useRef(null);
 
   /* ─── Fetch sessions (polled while RUNNING sessions exist) ─── */
@@ -61,7 +63,13 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      const sessionId = await startSession(profileType);
+      let sessionId;
+      if (crewMode) {
+        const result = await startCrewSession(profileType, foProfileType);
+        sessionId = result.sessionId;
+      } else {
+        sessionId = await startSession(profileType);
+      }
       await createScenario(sessionId, scenarioData);
       await startSchedule(sessionId);
       setSession(sessionId);                       // set as active
@@ -167,8 +175,29 @@ export default function HomePage() {
               Select pilot profile and launch a new simulation.
             </p>
 
-            {/* Profile type selector */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+            {/* Crew mode toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <button
+                onClick={() => setCrewMode((v) => !v)}
+                className={`hud-btn ${crewMode ? 'hud-btn--primary' : 'hud-btn--ghost'}`}
+                style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}
+              >
+                {crewMode ? '✈ CREW MODE' : '✈ SINGLE PILOT'}
+              </button>
+              {crewMode && (
+                <span style={{ fontSize: '0.6rem', color: '#00BFFF', letterSpacing: '0.05em' }}>
+                  Captain + First Officer · CRM enabled
+                </span>
+              )}
+            </div>
+
+            {/* Captain / Pilot profile selector */}
+            <div style={{ marginBottom: '0.15rem' }}>
+              <span style={{ fontSize: '0.6rem', color: '#8892B0', letterSpacing: '0.06em' }}>
+                {crewMode ? 'CAPTAIN PROFILE' : 'PILOT PROFILE'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: crewMode ? '0.4rem' : '0.6rem' }}>
               {PROFILE_TYPES.map((pt) => (
                 <button
                   key={pt}
@@ -180,6 +209,29 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
+
+            {/* FO profile selector (crew mode only) */}
+            {crewMode && (
+              <>
+                <div style={{ marginBottom: '0.15rem' }}>
+                  <span style={{ fontSize: '0.6rem', color: '#8892B0', letterSpacing: '0.06em' }}>
+                    FIRST OFFICER PROFILE
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                  {PROFILE_TYPES.map((pt) => (
+                    <button
+                      key={`fo-${pt}`}
+                      onClick={() => setFoProfileType(pt)}
+                      className={`hud-btn ${foProfileType === pt ? 'hud-btn--primary' : 'hud-btn--ghost'}`}
+                      style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem' }}
+                    >
+                      {pt.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Scenario Configurator (accordion) */}
             <ScenarioConfigurator value={scenarioData} onChange={setScenarioData} />
@@ -306,6 +358,13 @@ export default function HomePage() {
                       <div className="hud-row__meta">
                         {s.status || 'UNKNOWN'} · Pilot: {s.pilotName || 'Default'}
                         {s.totalFrames > 0 && ` · ${s.totalFrames} frames`}
+                        {s.crewMode && (
+                          <span style={{
+                            marginLeft: '0.4rem', fontSize: '0.55rem', padding: '0.1rem 0.35rem',
+                            background: 'rgba(0,191,255,0.15)', border: '1px solid rgba(0,191,255,0.4)',
+                            borderRadius: '3px', color: '#00BFFF', letterSpacing: '0.08em'
+                          }}>CREW</span>
+                        )}
                       </div>
                     </div>
                   </div>

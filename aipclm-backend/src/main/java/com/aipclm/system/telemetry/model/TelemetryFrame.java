@@ -1,5 +1,6 @@
 package com.aipclm.system.telemetry.model;
 
+import com.aipclm.system.pilot.model.CrewRole;
 import com.aipclm.system.session.model.FlightSession;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -63,6 +64,11 @@ public class TelemetryFrame {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PhaseOfFlight phaseOfFlight;
+
+    /** Null for single-pilot sessions; CAPTAIN or FIRST_OFFICER in crew mode. */
+    @Enumerated(EnumType.STRING)
+    @Column
+    private CrewRole crewRole;
 
     private int reactionTimeMs;
     private double controlInputFrequency;

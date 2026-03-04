@@ -10,6 +10,8 @@ import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.model.PhaseOfFlight;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
+import com.aipclm.system.crm.repository.CrewAssignmentRepository;
+import com.aipclm.system.crm.service.CrmService;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +38,8 @@ class SimulationEngineServiceTest {
     @Mock private PilotRepository pilotRepository;
     @Mock private TelemetryFrameRepository telemetryFrameRepository;
     @Mock private FlightScenarioRepository scenarioRepository;
+    @Mock private CrewAssignmentRepository crewAssignmentRepository;
+    @Mock private CrmService crmService;
 
     @InjectMocks private SimulationEngineService service;
 

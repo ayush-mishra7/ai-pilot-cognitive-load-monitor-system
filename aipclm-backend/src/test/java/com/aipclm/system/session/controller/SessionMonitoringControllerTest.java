@@ -14,6 +14,7 @@ import com.aipclm.system.risk.repository.RiskAssessmentRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
+import com.aipclm.system.crm.repository.CrmAssessmentRepository;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
 import com.aipclm.system.cognitive.model.RiskLevel;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +46,7 @@ class SessionMonitoringControllerTest {
     @Mock private RiskAssessmentRepository riskAssessmentRepository;
     @Mock private AIRecommendationRepository recommendationRepository;
     @Mock private MLInferenceService mlInferenceService;
+    @Mock private CrmAssessmentRepository crmAssessmentRepository;
 
     @InjectMocks private SessionMonitoringController controller;
 

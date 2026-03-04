@@ -3,6 +3,9 @@ package com.aipclm.system.simulation.web;
 import com.aipclm.system.cognitive.model.CognitiveState;
 import com.aipclm.system.cognitive.repository.CognitiveStateRepository;
 import com.aipclm.system.cognitive.service.CognitiveLoadService;
+import com.aipclm.system.crm.model.CrewAssignment;
+import com.aipclm.system.crm.repository.CrewAssignmentRepository;
+import com.aipclm.system.pilot.model.CrewRole;
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.pilot.model.PilotProfileType;
 import com.aipclm.system.pilot.repository.PilotRepository;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -48,6 +52,7 @@ public class SessionTestController {
         private final SimulationOrchestratorService simulationOrchestratorService;
         private final SimulationSchedulerService simulationSchedulerService;
         private final WebSocketBroadcastService webSocketBroadcastService;
+        private final CrewAssignmentRepository crewAssignmentRepository;
 
         public SessionTestController(SimulationEngineService simulationEngineService,
                         FlightSessionRepository flightSessionRepository,
@@ -60,7 +65,8 @@ public class SessionTestController {
                         RiskAssessmentRepository riskAssessmentRepository,
                         SimulationOrchestratorService simulationOrchestratorService,
                         SimulationSchedulerService simulationSchedulerService,
-                        WebSocketBroadcastService webSocketBroadcastService) {
+                        WebSocketBroadcastService webSocketBroadcastService,
+                        CrewAssignmentRepository crewAssignmentRepository) {
                 this.simulationEngineService = simulationEngineService;
                 this.flightSessionRepository = flightSessionRepository;
                 this.pilotRepository = pilotRepository;
@@ -73,6 +79,7 @@ public class SessionTestController {
                 this.simulationOrchestratorService = simulationOrchestratorService;
                 this.simulationSchedulerService = simulationSchedulerService;
                 this.webSocketBroadcastService = webSocketBroadcastService;
+                this.crewAssignmentRepository = crewAssignmentRepository;
         }
 
         @PostMapping("/start")
@@ -93,6 +100,63 @@ public class SessionTestController {
                 // Broadcast new session to all connected WebSocket clients
                 webSocketBroadcastService.broadcastSessionList();
                 return ResponseEntity.ok(session.getId());
+        }
+
+        /**
+         * Starts a crew-mode session with Captain + First Officer.
+         * Creates two pilots and two crew assignments. Captain is Pilot Flying by default.
+         */
+        @PostMapping("/start-crew")
+        public ResponseEntity<Map<String, Object>> startCrewSession(
+                        @RequestParam(defaultValue = "EXPERIENCED") PilotProfileType captainProfile,
+                        @RequestParam(defaultValue = "NOVICE") PilotProfileType foProfile) {
+
+                // Create Captain pilot
+                Pilot captain = pilotRepository.save(Pilot.builder()
+                                .fullName("Captain " + captainProfile)
+                                .profileType(captainProfile)
+                                .baselineStressSensitivity(1.0)
+                                .baselineFatigueRate(1.0)
+                                .build());
+
+                // Create First Officer pilot
+                Pilot fo = pilotRepository.save(Pilot.builder()
+                                .fullName("FO " + foProfile)
+                                .profileType(foProfile)
+                                .baselineStressSensitivity(1.0)
+                                .baselineFatigueRate(1.0)
+                                .build());
+
+                // Create crew-mode session (Captain is the session owner / primary pilot)
+                FlightSession session = flightSessionRepository.save(FlightSession.builder()
+                                .pilot(captain)
+                                .sessionStartTime(Instant.now())
+                                .status(FlightSessionStatus.RUNNING)
+                                .crewMode(true)
+                                .build());
+
+                // Create crew assignments
+                crewAssignmentRepository.save(CrewAssignment.builder()
+                                .flightSession(session)
+                                .pilot(captain)
+                                .crewRole(CrewRole.CAPTAIN)
+                                .pilotFlying(true)
+                                .build());
+
+                crewAssignmentRepository.save(CrewAssignment.builder()
+                                .flightSession(session)
+                                .pilot(fo)
+                                .crewRole(CrewRole.FIRST_OFFICER)
+                                .pilotFlying(false)
+                                .build());
+
+                webSocketBroadcastService.broadcastSessionList();
+
+                return ResponseEntity.ok(Map.of(
+                                "sessionId", session.getId(),
+                                "crewMode", true,
+                                "captainId", captain.getId(),
+                                "firstOfficerId", fo.getId()));
         }
 
         @PostMapping("/{sessionId}/generate-frame")

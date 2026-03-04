@@ -4,6 +4,8 @@ import com.aipclm.system.cognitive.model.CognitiveState;
 import com.aipclm.system.cognitive.repository.CognitiveStateRepository;
 import com.aipclm.system.cognitive.service.MLExplainResponse;
 import com.aipclm.system.cognitive.service.MLInferenceService;
+import com.aipclm.system.crm.model.CrmAssessment;
+import com.aipclm.system.crm.repository.CrmAssessmentRepository;
 import com.aipclm.system.recommendation.model.AIRecommendation;
 import com.aipclm.system.recommendation.repository.AIRecommendationRepository;
 import com.aipclm.system.risk.model.RiskAssessment;
@@ -43,6 +45,7 @@ public class SessionMonitoringController {
     private final EntityManager entityManager;
     private final WebSocketBroadcastService webSocketBroadcastService;
     private final MLInferenceService mlInferenceService;
+    private final CrmAssessmentRepository crmAssessmentRepository;
 
     /* ─── Health check ─── */
     @GetMapping("/health")
@@ -59,6 +62,8 @@ public class SessionMonitoringController {
         entityManager.createNativeQuery("DELETE FROM risk_assessment").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM cognitive_state").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM telemetry_frame").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM crm_assessment").executeUpdate();
+        entityManager.createNativeQuery("DELETE FROM crew_assignments").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM flight_scenario").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM flight_sessions").executeUpdate();
         entityManager.createNativeQuery("DELETE FROM pilots").executeUpdate();
@@ -98,6 +103,14 @@ public class SessionMonitoringController {
 
         entityManager.createNativeQuery(
             "DELETE FROM telemetry_frame WHERE flight_session_id = :sid")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM crm_assessment WHERE flight_session_id = :sid")
+            .setParameter("sid", sessionId).executeUpdate();
+
+        entityManager.createNativeQuery(
+            "DELETE FROM crew_assignments WHERE flight_session_id = :sid")
             .setParameter("sid", sessionId).executeUpdate();
 
         entityManager.createNativeQuery(
@@ -171,6 +184,7 @@ public class SessionMonitoringController {
                         .pilotName(s.getPilot() != null ? s.getPilot().getFullName() : "Unknown")
                         .totalFrames(s.getTotalFramesGenerated())
                         .createdAt(s.getCreatedAt())
+                        .crewMode(s.isCrewMode())
                         .build())
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
@@ -259,6 +273,31 @@ public class SessionMonitoringController {
                 .topPositiveDrivers(explain.getTopPositiveDrivers())
                 .topNegativeDrivers(explain.getTopNegativeDrivers())
                 .build());
+    }
+
+    /* ─── CRM history for a crew-mode session ─── */
+    @GetMapping("/{sessionId}/crm-history")
+    public ResponseEntity<List<CrmHistoryDto>> getCrmHistory(@PathVariable UUID sessionId) {
+        FlightSession session = flightSessionRepository.findById(sessionId).orElse(null);
+        if (session == null) return ResponseEntity.notFound().build();
+        if (!session.isCrewMode()) return ResponseEntity.ok(List.of());
+
+        List<CrmAssessment> assessments = crmAssessmentRepository
+                .findByFlightSessionIdOrderByFrameNumberAsc(sessionId);
+        List<CrmHistoryDto> dtos = assessments.stream()
+                .map(c -> CrmHistoryDto.builder()
+                        .communicationScore(c.getCommunicationScore())
+                        .workloadDistribution(c.getWorkloadDistribution())
+                        .authorityGradient(c.getAuthorityGradient())
+                        .situationalAwareness(c.getSituationalAwarenessScore())
+                        .crmEffectiveness(c.getCrmEffectivenessScore())
+                        .fatigueSymmetry(c.getFatigueSymmetry())
+                        .captainLoad(c.getCaptainLoad())
+                        .firstOfficerLoad(c.getFirstOfficerLoad())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
     }
 
     private TelemetryDto mapTelemetry(TelemetryFrame frame) {
@@ -354,6 +393,7 @@ public class SessionMonitoringController {
         private String pilotName;
         private int totalFrames;
         private Instant createdAt;
+        @Builder.Default private boolean crewMode = false;
     }
 
     @Data
@@ -387,5 +427,18 @@ public class SessionMonitoringController {
         private String feature;
         private double value;
         private double shapValue;
+    }
+
+    @Data
+    @Builder
+    public static class CrmHistoryDto {
+        private double communicationScore;
+        private double workloadDistribution;
+        private double authorityGradient;
+        private double situationalAwareness;
+        private double crmEffectiveness;
+        private double fatigueSymmetry;
+        private double captainLoad;
+        private double firstOfficerLoad;
     }
 }

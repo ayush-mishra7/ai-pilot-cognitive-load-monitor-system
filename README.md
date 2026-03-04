@@ -5,7 +5,7 @@
 <h1 align="center">AI-Pilot Cognitive Load Monitor System</h1>
 
 <p align="center">
-  <em>Full-stack real-time simulation and monitoring of pilot cognitive workload with a cockpit-grade React UI, JWT authentication, scenario-driven flight engine, expert + ML cognitive load fusion, Swiss Cheese risk model, and AI-powered recommendations.</em>
+  <em>Full-stack real-time simulation and monitoring of pilot cognitive workload with a cockpit-grade React UI, JWT authentication, scenario-driven flight engine, expert + ML cognitive load fusion, Swiss Cheese risk model, AI-powered recommendations, and multi-pilot Crew Resource Management (CRM) simulation.</em>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Tests-115%20Passed-brightgreen?style=flat-square&logo=junit5&logoColor=white" alt="115 Tests Passed"/>
   <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square&logo=github-actions&logoColor=white" alt="Build Passing"/>
-  <img src="https://img.shields.io/badge/Phase-3%20Complete-blueviolet?style=flat-square" alt="Phase 3"/>
+  <img src="https://img.shields.io/badge/Phase-4%20Complete-blueviolet?style=flat-square" alt="Phase 4"/>
 </p>
 
 ---
@@ -126,6 +126,11 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 | 🔄 **Confidence-Weighted Fusion** | `fused = conf × ML + (1−conf) × expert` — higher ML confidence → more weight to trained model |
 | 📈 **Swiss Cheese Alignment** | 4-barrier breach tracking (load>70, fatigue>60, errors>2, turbulence>0.05) with real-time sparkline |
 | 🛡️ **Duplicate Frame Guard** | Prevents duplicate telemetry frames on concurrent scheduler ticks |
+| 👨‍✈️ **Multi-Pilot Crew Mode** | Captain + First Officer dual-crew simulation with independent biometrics, shared cockpit state, and PF/PM role differentiation |
+| 🤝 **CRM Assessment Engine** | 7-metric Crew Resource Management evaluation per tick — communication, workload distribution, authority gradient, situational awareness, fatigue symmetry, cross-crew stress contagion, CRM effectiveness |
+| 🔄 **Cross-Crew Fatigue Propagation** | Stress contagion (0.15 factor) and fatigue convergence (0.10 factor) between crew members |
+| 📊 **Dual Cockpit Dashboard** | Side-by-side Captain/FO biometrics, dual cognitive load gauges, and real-time CRM HUD overlay |
+| 📈 **CRM Analytics** | CRM effectiveness, communication, and fatigue symmetry sparklines with Captain vs FO load overlay |
 
 ---
 
@@ -159,12 +164,16 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 │  │              │ Simulation│  │  Cognitive   │  │   Risk     │      │    │
 │  │              │  Engine   │  │  Load Svc    │  │  Engine    │      │    │
 │  │              │ +Scenario │  │ Expert+ML    │  │ SwissCheese│      │    │
+│  │              │ +CrewMode │  │ (×2 in crew) │  │            │      │    │
 │  │              └───────────┘  └──────┬──────┘  └────────────┘      │    │
 │  │                                    │                              │    │
-│  │                           ┌────────▼─────────┐                    │    │
-│  │                           │  Recommendation   │                    │    │
-│  │                           │  Engine (12 rules)│                    │    │
-│  │                           └──────────────────┘                    │    │
+│  │                  ┌─────────────────┼─────────────────┐            │    │
+│  │                  │                 │                  │            │    │
+│  │           ┌──────▼──────┐  ┌──────▼─────────┐  ┌────▼───────┐   │    │
+│  │           │     CRM     │  │ Recommendation  │  │  Crew      │   │    │
+│  │           │  Assessment │  │ Engine (12 rules)│  │ Assignment │   │    │
+│  │           │  (7 metrics)│  └────────────────┘  │  Repository │   │    │
+│  │           └─────────────┘                      └────────────┘   │    │
 │  └──────────────────────────────────┬────────────────────────────────┘    │
 │                                     │                                     │
 │  ┌──────────────────┐    ┌──────────▼──────────┐                          │
@@ -188,17 +197,27 @@ Each simulation tick executes this **5-stage atomic pipeline**:
 Stage 1 ─ Telemetry Generation
    │  SimulationEngineService generates a TelemetryFrame with
    │  scenario-aware modifiers (weather, emergency, visibility multipliers)
+   │  Crew Mode: generates two frames (Captain + FO) with shared cockpit
+   │  state and PF/PM role differentiation
    ▼
 Stage 2 ─ Cognitive Load Computation
    │  CognitiveLoadService computes expert load (weighted sum of 12 factors),
    │  calls trained GradientBoosting model for ML prediction, fuses them via
    │  confidence-weighted blending, applies EMA smoothing (α=0.3), computes
    │  fatigue trend slope (OLS on 10-frame window), and Swiss Cheese alignment
+   │  Crew Mode: runs independently for Captain and FO
+   ▼
+Stage 2.5 ─ CRM Assessment (Crew Mode Only)
+   │  CrmService evaluates 7 CRM metrics: communication, workload distribution,
+   │  authority gradient, situational awareness, fatigue symmetry, cross-crew
+   │  stress contagion, and composite CRM effectiveness score
+   │  Cross-crew propagation: stress contagion (0.15) + fatigue convergence (0.10)
    ▼
 Stage 3 ─ Risk Assessment
    │  RiskEngineService classifies risk (LOW/MODERATE/HIGH/CRITICAL)
    │  using EMA-smoothed load, hysteresis bands, Swiss Cheese barriers,
    │  scenario severity floor, and confidence gate
+   │  Crew Mode: assesses worst-case load across both crew members
    ▼
 Stage 4 ─ Recommendation Generation
    │  RecommendationEngineService applies 12 rule-based triggers including
@@ -226,6 +245,18 @@ Stage 5 ─ Persist & Commit
 | 💓 Physiological | `heartRate > 120 AND stressIndex > 60` |
 
 > **Rule**: All 4 barriers must be breached simultaneously + `smoothedLoad > 70` to trigger Swiss Cheese CRITICAL escalation.
+
+### CRM Assessment Metrics (Crew Mode)
+
+| Metric | Formula / Source | Weight in CRM Effectiveness |
+|--------|-----------------|:---------------------------:|
+| 📡 Communication | Based on workload balance & stress levels | 25% |
+| ⚖️ Workload Distribution | \|captainLoad − foLoad\| deviation | 20% |
+| 🎖️ Authority Gradient | Profile experience ratio (NOVICE=1, EXPERIENCED=4) | — |
+| 🧭 Situational Awareness | Average of both crew SA scores | 25% |
+| 🔋 Fatigue Symmetry | 1 − \|captainFatigue − foFatigue\| / 100 | 15% |
+| 🔴 Stress Contagion | Cross-crew propagation (factor = 0.15) | 15% |
+| 📊 CRM Effectiveness | Weighted composite of all above | 100% |
 
 ### Scenario Modifiers
 
@@ -333,8 +364,9 @@ ai-pclm/
 │       │   │   ├── repository/
 │       │   │   │   └── CognitiveStateRepository.java
 │       │   │   └── service/
-│       │   │       ├── CognitiveLoadService.java    # Expert + ML fusion
-│       │   │       ├── MLInferenceService.java      # WebClient ML caller
+│       │   │       ├── CognitiveLoadService.java    # Expert + ML fusion + EMA + Swiss Cheese
+│       │   │       ├── MLInferenceService.java      # WebClient ML caller + SHAP explainability
+│       │   │       ├── MLExplainResponse.java       # SHAP feature contribution DTO
 │       │   │       ├── MLPredictionRequest.java
 │       │   │       └── MLPredictionResponse.java
 │       │   ├── config/
@@ -400,6 +432,15 @@ ai-pclm/
 │       │   │   │   └── SimulationSchedulerService.java  # 1Hz scheduler
 │       │   │   └── web/
 │       │   │       └── SessionTestController.java
+│       │   ├── crm/                                 # ── Phase 4: Crew Resource Management ──
+│       │   │   ├── model/
+│       │   │   │   ├── CrewAssignment.java               # Pilot ↔ Session ↔ CrewRole link
+│       │   │   │   └── CrmAssessment.java                # Per-tick 7-metric CRM entity
+│       │   │   ├── repository/
+│       │   │   │   ├── CrewAssignmentRepository.java
+│       │   │   │   └── CrmAssessmentRepository.java
+│       │   │   └── service/
+│       │   │       └── CrmService.java                   # Cross-crew propagation + CRM scoring
 │       │   └── telemetry/
 │       │       ├── model/
 │       │       │   ├── PhaseOfFlight.java
@@ -580,6 +621,13 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | `POST` | `/api/simulation/{sessionId}/start` | Start simulation engine |
 | `POST` | `/api/simulation/{sessionId}/stop` | Stop simulation engine |
 
+### Crew / CRM (`/api/test/simulation` + `/api/session`) — *Requires JWT*
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/test/simulation/start-crew?captainProfile=X&foProfile=Y` | Start crew-mode session (Captain + FO) |
+| `GET` | `/api/session/{id}/crm-history` | Get all CRM assessment frames for session |
+
 ### ML Inference Service (`:8001`)
 
 | Method | Endpoint | Description |
@@ -589,6 +637,16 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | `POST` | `/explain` | SHAP feature contributions for a prediction |
 | `GET` | `/model/info` | Model metadata (version, features, metrics) |
 | `POST` | `/model/reload` | Hot-reload latest model from disk |
+
+### WebSocket Topics (STOMP over SockJS)
+
+| Topic | Payload | Mode |
+|-------|---------|------|
+| `/topic/session/{id}/state` | Telemetry + cognitive + risk + recommendations (+ crew data in crew mode) | Single + Crew |
+| `/topic/session/{id}/cognitive-history` | Cognitive state history array | Single + Crew |
+| `/topic/session/{id}/risk-history` | Risk assessment history array | Single + Crew |
+| `/topic/session/{id}/crm-history` | CRM assessment history array | Crew only |
+| `/topic/sessions` | Active session list | Global |
 
 ---
 
@@ -645,15 +703,14 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 |:-----:|------|:------:|-------------|
 | **0** | **Auth Foundation** | ✅ Done | JWT authentication, BCrypt, role-based access (PILOT/ATC), auto-seeded accounts, Spring Security config, React login/register |
 | **1** | **Scenario Engine** | ✅ Done | 9-axis flight scenario configuration, 3 presets (NORMAL/MODERATE/EXTREME), scenario-aware simulation modifiers, 5 new recommendation types, cockpit dashboard, analytics, ATC radar |
-| **2** | **WebSocket Real-Time Streaming** | ✅ Done | Replaced HTTP polling (1s–4s) with STOMP over SockJS WebSocket push. Per-session topic channels (`/topic/session/{id}/state`, `cognitive-history`, `risk-history`), global `/topic/sessions` channel, auto-reconnect with exponential back-off, REST fallback for initial hydration |
+| **3** | **Advanced ML Pipeline** | ✅ Done | Trained GradientBoosting model (R²=0.981, MAE=2.13) on 50K synthetic dataset. Confidence-weighted expert–ML fusion, EMA smoothing (α=0.3), fatigue trend slope (OLS on 10-frame window), Swiss Cheese 4-barrier alignment score. SHAP TreeExplainer with `/explain` endpoint. Dynamic confidence via uncertainty model. Cockpit SHAP driver bars and Swiss Cheese sparkline on Analytics page. |
+| **4** | **Multi-Pilot & CRM Simulation** | ✅ Done | Captain + First Officer dual-crew cockpit with shared cockpit state and PF/PM role differentiation. 7-metric CRM assessment engine (communication, workload distribution, authority gradient, situational awareness, fatigue symmetry, cross-crew stress contagion, CRM effectiveness). Cross-crew fatigue propagation (stress contagion 0.15, fatigue convergence 0.10). Dual-crew dashboard with side-by-side biometrics, dual cognitive load gauges, and real-time CRM HUD. CRM analytics sparklines on Analytics page. CrewAssignment + CrmAssessment entities, crew-aware WebSocket broadcast. |
 
 ### Upcoming Phases
 
 | Phase | Name | Status | Description |
 |:-----:|------|:------:|-------------|
-| **3** | **Advanced ML Pipeline** | 🔜 Next | Replace simulated ML formula with a trained LSTM/Transformer model using NASA-TLX and MATB-II datasets. Add model versioning, A/B testing, and SHAP/LIME explainability layer. |
-| **4** | **Multi-Pilot & CRM Simulation** | 📋 Planned | Simulate Captain + First Officer with Crew Resource Management (CRM) cognitive interaction modeling. Shared cockpit state, cross-crew fatigue propagation. |
-| **5** | **Wearable & Sensor Integration** | 📋 Planned | Ingest real physiological data from Garmin HRM, EEG headbands, and eye trackers. Replace simulated biometrics with live sensor feeds. |
+| **5** | **Wearable & Sensor Integration** | � Next | Ingest real physiological data from Garmin HRM, EEG headbands, and eye trackers. Replace simulated biometrics with live sensor feeds. |
 | **6** | **Containerization & Orchestration** | 📋 Planned | **Docker** — Multi-stage Dockerfiles for backend, frontend, and ML service. Docker Compose for single-command local dev startup. **Kubernetes** — Helm charts for production deployment with auto-scaling, health probes, ConfigMaps, and Secrets. Horizontal Pod Autoscaler for ML inference under load. |
 | **7** | **CI/CD & Observability** | 📋 Planned | GitHub Actions pipeline (build → test → Docker push → deploy). Prometheus + Grafana monitoring. OpenTelemetry + Jaeger distributed tracing across Spring Boot ↔ FastAPI boundaries. |
 | **8** | **Dynamic Weather & ADS-B** | 📋 Planned | Real-time METAR/TAF weather API integration. ADS-B live feed ingestion for shadow-monitoring actual flights in research mode. |

@@ -15,6 +15,8 @@ import com.aipclm.system.recommendation.service.RecommendationEngineService;
 import com.aipclm.system.risk.model.RiskAssessment;
 import com.aipclm.system.risk.repository.RiskAssessmentRepository;
 import com.aipclm.system.risk.service.RiskEngineService;
+import com.aipclm.system.crm.repository.CrewAssignmentRepository;
+import com.aipclm.system.crm.service.CrmService;
 import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
@@ -194,13 +196,15 @@ class SystemMustNotDoTest {
         @Mock private com.aipclm.system.pilot.repository.PilotRepository pilotRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
         @Mock private FlightScenarioRepository scenarioRepository;
+        @Mock private CrewAssignmentRepository crewAssignmentRepository;
+        @Mock private CrmService crmService;
 
         private SimulationEngineService engineService;
 
         @BeforeEach
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
-                    telemetryFrameRepository, scenarioRepository);
+                    telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService);
         }
 
         @Test
@@ -286,6 +290,8 @@ class SystemMustNotDoTest {
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
         @Mock private CognitiveStateRepository cognitiveStateRepository;
         @Mock private RiskAssessmentRepository riskAssessmentRepository;
+        @Mock private FlightSessionRepository flightSessionRepository;
+        @Mock private CrmService crmService;
 
         private SimulationOrchestratorService orchestrator;
 
@@ -294,7 +300,8 @@ class SystemMustNotDoTest {
             orchestrator = new SimulationOrchestratorService(
                     simulationEngineService, cognitiveLoadService, riskEngineService,
                     recommendationEngineService, telemetryFrameRepository,
-                    cognitiveStateRepository, riskAssessmentRepository);
+                    cognitiveStateRepository, riskAssessmentRepository,
+                    flightSessionRepository, crmService);
         }
 
         @Test
@@ -304,8 +311,7 @@ class SystemMustNotDoTest {
             FlightSession session = TestFixtures.runningSession(pilot);
             TelemetryFrame frame = TestFixtures.cruiseFrame(session, 1);
             CognitiveState cogState = TestFixtures.cognitiveState(frame, 30, 32, 0.85);
-
-            doNothing().when(simulationEngineService).generateNextFrame(session.getId());
+            when(flightSessionRepository.findById(session.getId())).thenReturn(Optional.of(session));            doNothing().when(simulationEngineService).generateNextFrame(session.getId());
             when(telemetryFrameRepository.findTopByFlightSessionIdOrderByFrameNumberDesc(session.getId()))
                     .thenReturn(Optional.of(frame));
             when(cognitiveLoadService.computeCognitiveLoad(frame.getId())).thenReturn(30.0);
@@ -328,8 +334,7 @@ class SystemMustNotDoTest {
             TelemetryFrame frame = TestFixtures.cruiseFrame(session, 1);
             CognitiveState cogState = TestFixtures.cognitiveState(frame, 30, 32, 0.85);
             RiskAssessment risk = TestFixtures.riskAssessment(cogState, RiskLevel.LOW, false);
-
-            doNothing().when(simulationEngineService).generateNextFrame(session.getId());
+            when(flightSessionRepository.findById(session.getId())).thenReturn(Optional.of(session));            doNothing().when(simulationEngineService).generateNextFrame(session.getId());
             when(telemetryFrameRepository.findTopByFlightSessionIdOrderByFrameNumberDesc(session.getId()))
                     .thenReturn(Optional.of(frame));
             when(cognitiveLoadService.computeCognitiveLoad(frame.getId())).thenReturn(30.0);
@@ -517,13 +522,15 @@ class SystemMustNotDoTest {
         @Mock private com.aipclm.system.pilot.repository.PilotRepository pilotRepository;
         @Mock private TelemetryFrameRepository telemetryFrameRepository;
         @Mock private FlightScenarioRepository scenarioRepository;
+        @Mock private CrewAssignmentRepository crewAssignmentRepository;
+        @Mock private CrmService crmService;
 
         private SimulationEngineService engineService;
 
         @BeforeEach
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
-                    telemetryFrameRepository, scenarioRepository);
+                    telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService);
         }
 
         @Test

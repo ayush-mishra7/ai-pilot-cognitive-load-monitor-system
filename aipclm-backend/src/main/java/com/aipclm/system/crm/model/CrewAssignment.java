@@ -1,6 +1,8 @@
-package com.aipclm.system.session.model;
+package com.aipclm.system.crm.model;
 
+import com.aipclm.system.pilot.model.CrewRole;
 import com.aipclm.system.pilot.model.Pilot;
+import com.aipclm.system.session.model.FlightSession;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +16,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -23,45 +26,41 @@ import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Links a {@link Pilot} to a {@link FlightSession} with a specific {@link CrewRole}.
+ * Each crew-mode session has exactly two assignments: CAPTAIN and FIRST_OFFICER.
+ */
 @Entity
-@Table(name = "flight_sessions")
+@Table(name = "crew_assignments", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"flight_session_id", "crew_role"})
+})
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class FlightSession {
+public class CrewAssignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "flight_session_id", nullable = false)
+    private FlightSession flightSession;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pilot_id", nullable = false)
     private Pilot pilot;
 
-    @Column(nullable = false)
-    private Instant sessionStartTime;
-
-    @Column
-    private Instant sessionEndTime;
-
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private FlightSessionStatus status;
+    @Column(name = "crew_role", nullable = false)
+    private CrewRole crewRole;
 
+    /** True if this crew member is the Pilot Flying (PF) for this session. */
     @Builder.Default
     @Column(nullable = false)
-    private int frameFrequencySeconds = 2;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private int totalFramesGenerated = 0;
-
-    /** When true, session runs Captain + First Officer with CRM interaction. */
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean crewMode = false;
+    private boolean pilotFlying = false;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

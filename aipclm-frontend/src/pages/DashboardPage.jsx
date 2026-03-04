@@ -70,6 +70,7 @@ export default function DashboardPage() {
   );
 
   /* ── Derived values ── */
+  const isCrewMode = !!state?.crewMode;
   const cog       = state?.cognitiveState ?? {};
   const tel       = state?.telemetry ?? {};
   const recs      = state?.recommendations ?? [];
@@ -80,15 +81,27 @@ export default function DashboardPage() {
   const errP      = cog.errorProbability ?? 0;
   const gauge     = Math.min(1, Math.max(0, cogLoad / 10));
 
-  const riskClr = riskLevel === 'LOW' ? '#00FF41'
-    : riskLevel === 'MEDIUM' ? '#FFD700'
-    : riskLevel === 'HIGH' ? '#FF6B35' : '#FF3333';
+  /* Crew-specific derived */
+  const capCog  = state?.captainCognitive ?? {};
+  const foCog   = state?.foCognitive ?? {};
+  const capTel  = state?.captainTelemetry ?? {};
+  const foTel   = state?.foTelemetry ?? {};
+  const crm     = state?.crmData ?? {};
+  const capLoad = capCog.smoothedLoad ?? 0;
+  const foLoad  = foCog.smoothedLoad ?? 0;
+  const capGauge = Math.min(1, Math.max(0, capLoad / 10));
+  const foGauge  = Math.min(1, Math.max(0, foLoad / 10));
+  const capRisk  = capCog.riskLevel || 'LOW';
+  const foRisk   = foCog.riskLevel || 'LOW';
+  const riskClrOf = (r) => r === 'LOW' ? '#00FF41' : r === 'MEDIUM' ? '#FFD700' : r === 'HIGH' ? '#FF6B35' : '#FF3333';
+
+  const riskClr = riskClrOf(riskLevel);
 
   const sorted = [...recs].sort(
     (a, b) => (SEV_ORD[a.severity] ?? 9) - (SEV_ORD[b.severity] ?? 9)
   );
 
-  /* ── Telemetry rows ── */
+  /* ── Telemetry rows (single-pilot) ── */
   const tRows = [
     { label: 'ALT',      val: (tel.altitude ?? 0).toFixed(0),                  unit: 'FT' },
     { label: 'AIRSPD',   val: (tel.airspeed ?? 0).toFixed(0),                  unit: 'KTS' },
@@ -145,35 +158,104 @@ export default function DashboardPage() {
       >
         {/* ══════ LEFT SCREEN: TELEMETRY ══════ */}
         <div className="screen-overlay" style={{ ...S.L, padding: '5% 6%' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
-            {tRows.map((t) => (
-              <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span className="digi-label">{t.label}</span>
-                <span>
-                  <span className="digi-value" style={t.color ? { color: t.color } : undefined}>
-                    {t.val}
-                  </span>
-                  {t.unit && (
-                    <span className="digi-label" style={{ marginLeft: '0.3em', fontSize: '0.9em' }}>
-                      {t.unit}
-                    </span>
-                  )}
-                </span>
+          {isCrewMode ? (
+            /* ── Crew biometrics: Captain + FO side-by-side ── */
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '3%' }}>
+              {/* Shared flight params */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span className="digi-label">ALT</span>
+                <span><span className="digi-value">{(capTel.altitude ?? 0).toFixed(0)}</span> <span className="digi-label" style={{ fontSize: '0.9em' }}>FT</span></span>
               </div>
-            ))}
-          </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span className="digi-label">AIRSPD</span>
+                <span><span className="digi-value">{(capTel.airspeed ?? 0).toFixed(0)}</span> <span className="digi-label" style={{ fontSize: '0.9em' }}>KTS</span></span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span className="digi-label">TURB</span>
+                <span><span className="digi-value" style={{ color: '#00C2FF' }}>{((capTel.turbulenceLevel ?? 0) * 100).toFixed(1)}</span> <span className="digi-label" style={{ fontSize: '0.9em' }}>%</span></span>
+              </div>
+
+              {/* Separator */}
+              <div style={{ height: '1px', background: 'rgba(0,255,65,0.15)', margin: '0.2em 0' }} />
+
+              {/* Dual pilot rows */}
+              <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '0.1em' }}>
+                <span className="digi-label" style={{ color: '#00BFFF', fontSize: '0.85em' }}>CAPTAIN</span>
+                <span className="digi-label" style={{ color: '#FF6B35', fontSize: '0.85em' }}>FIRST OFF</span>
+              </div>
+              {[
+                { label: 'HR',      capV: (capTel.heartRate ?? 0).toFixed(0),      foV: (foTel.heartRate ?? 0).toFixed(0),      unit: 'BPM' },
+                { label: 'FATIGUE', capV: (capTel.fatigueIndex ?? 0).toFixed(2),   foV: (foTel.fatigueIndex ?? 0).toFixed(2),   unit: '' },
+                { label: 'STRESS',  capV: (capTel.stressIndex ?? 0).toFixed(2),    foV: (foTel.stressIndex ?? 0).toFixed(2),    unit: '' },
+                { label: 'ERR%',    capV: ((capCog.errorProbability ?? 0) * 100).toFixed(1), foV: ((foCog.errorProbability ?? 0) * 100).toFixed(1), unit: '%' },
+              ].map((r) => (
+                <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span className="digi-value" style={{ color: '#00BFFF', minWidth: '3em', textAlign: 'right' }}>{r.capV}</span>
+                  <span className="digi-label" style={{ textAlign: 'center', flex: 1 }}>{r.label}</span>
+                  <span className="digi-value" style={{ color: '#FF6B35', minWidth: '3em', textAlign: 'left' }}>{r.foV}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* ── Single-pilot telemetry ── */
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+              {tRows.map((t) => (
+                <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span className="digi-label">{t.label}</span>
+                  <span>
+                    <span className="digi-value" style={t.color ? { color: t.color } : undefined}>
+                      {t.val}
+                    </span>
+                    {t.unit && (
+                      <span className="digi-label" style={{ marginLeft: '0.3em', fontSize: '0.9em' }}>
+                        {t.unit}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ══════ CENTER SCREEN: COGNITIVE LOAD ══════ */}
         <div className="screen-overlay" style={{ ...S.C, padding: '3% 4%' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <SemiGauge value={gauge} riskLevel={riskLevel} cogLoad={cogLoad} riskColor={riskClr} />
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '12%', width: '100%', marginTop: 'auto' }}>
-              <MiniVal label="EXPERT" value={expert} />
-              <MiniVal label="ML" value={ml} color="#00C2FF" />
-              <MiniVal label="SMOOTHED" value={cogLoad} color={riskClr} />
+          {isCrewMode ? (
+            /* ── Crew mode: Dual gauges + CRM bar ── */
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              {/* Dual gauges */}
+              <div style={{ display: 'flex', gap: '2%', flex: 1 }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div className="digi-label" style={{ fontSize: '0.85em', color: '#00BFFF', marginBottom: '0.1em' }}>CAPTAIN</div>
+                  <SemiGauge value={capGauge} riskLevel={capRisk} cogLoad={capLoad} riskColor={riskClrOf(capRisk)} />
+                </div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div className="digi-label" style={{ fontSize: '0.85em', color: '#FF6B35', marginBottom: '0.1em' }}>FIRST OFFICER</div>
+                  <SemiGauge value={foGauge} riskLevel={foRisk} cogLoad={foLoad} riskColor={riskClrOf(foRisk)} />
+                </div>
+              </div>
+              {/* CRM HUD row */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-around', padding: '0.3em 0',
+                borderTop: '1px solid rgba(0,191,255,0.2)', marginTop: 'auto'
+              }}>
+                <CrmMini label="COMM" value={crm.communicationScore} />
+                <CrmMini label="WL BAL" value={crm.workloadDistribution} />
+                <CrmMini label="SA" value={crm.situationalAwareness} />
+                <CrmMini label="CRM" value={crm.crmEffectiveness} accent />
+              </div>
             </div>
-          </div>
+          ) : (
+            /* ── Single-pilot gauge ── */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <SemiGauge value={gauge} riskLevel={riskLevel} cogLoad={cogLoad} riskColor={riskClr} />
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '12%', width: '100%', marginTop: 'auto' }}>
+                <MiniVal label="EXPERT" value={expert} />
+                <MiniVal label="ML" value={ml} color="#00C2FF" />
+                <MiniVal label="SMOOTHED" value={cogLoad} color={riskClr} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ══════ RIGHT SCREEN: RISK & RECOMMENDATIONS ══════ */}
@@ -300,6 +382,22 @@ function MiniVal({ label, value, color }) {
       <div className="digi-label" style={{ fontSize: '0.95em' }}>{label}</div>
       <div className="digi-value" style={{ fontSize: '1.4em', ...(color && { color }) }}>
         {value.toFixed(1)}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   CRM Mini Stat (crew-mode center screen)
+   ═══════════════════════════════════════════════ */
+function CrmMini({ label, value, accent }) {
+  const v = value ?? 0;
+  const clr = accent ? (v >= 0.7 ? '#00FF41' : v >= 0.4 ? '#FFD700' : '#FF3333') : '#8892B0';
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div className="digi-label" style={{ fontSize: '0.7em', marginBottom: '0.1em' }}>{label}</div>
+      <div className="digi-value" style={{ fontSize: '1.1em', color: accent ? clr : '#CCD6F6' }}>
+        {(v * 100).toFixed(0)}%
       </div>
     </div>
   );

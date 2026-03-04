@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCognitiveHistory, getRiskHistory, getExplainability } from '../services/api';
+import { getCognitiveHistory, getRiskHistory, getExplainability, getCrmHistory } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import analyticsBg from '../assets/analytics-page.png';
@@ -27,6 +27,7 @@ export default function AnalyticsPage() {
   const { setSession } = useSession();
   const [cogHistory, setCogHistory] = useState([]);
   const [riskHistory, setRiskHistory] = useState([]);
+  const [crmHistory, setCrmHistory] = useState([]);
   const [shapData, setShapData] = useState(null);
   const [status, setStatus] = useState('loading');   // loading | live | waiting | error
   const pollRef = useRef(null);
@@ -56,6 +57,8 @@ export default function AnalyticsPage() {
       if (cogArr.length > 0) {
         getExplainability(sessionId).then(setShapData).catch(() => {});
       }
+      // Fetch CRM history (crew-mode sessions)
+      getCrmHistory(sessionId).then((d) => setCrmHistory(Array.isArray(d) ? d : [])).catch(() => {});
     } catch (err) {
       if (err?.response?.status === 404) {
         setStatus('waiting');
@@ -70,6 +73,7 @@ export default function AnalyticsPage() {
     setStatus('loading');
     setCogHistory([]);
     setRiskHistory([]);
+    setCrmHistory([]);
     fetchData();
   }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -97,6 +101,14 @@ export default function AnalyticsPage() {
     }, [])
   );
 
+  /* CRM history — crew-mode sessions only (no-op if topic never fires) */
+  useWebSocket(
+    validSession ? `/topic/session/${sessionId}/crm-history` : null,
+    useCallback((entry) => {
+      setCrmHistory((prev) => [...prev, entry]);
+    }, [])
+  );
+
   /* ── Derived chart data ── */
   const smoothedLoads = cogHistory.map((c) => c.smoothedLoad ?? 0);
   const expertLoads   = cogHistory.map((c) => c.expertComputedLoad ?? 0);
@@ -119,6 +131,14 @@ export default function AnalyticsPage() {
   const peakLoad = smoothedLoads.length > 0 ? Math.max(...smoothedLoads).toFixed(1) : '—';
   const avgConf  = confidences.length > 0 ? (confidences.reduce((a, b) => a + b, 0) / confidences.length).toFixed(1) : '—';
   const curLoad  = smoothedLoads.length > 0 ? smoothedLoads[smoothedLoads.length - 1].toFixed(1) : '—';
+
+  /* ── CRM derived data (crew mode only) ── */
+  const isCrewMode = crmHistory.length > 0;
+  const crmComm       = crmHistory.map((c) => (c.communicationScore ?? 0) * 100);
+  const crmEff        = crmHistory.map((c) => (c.crmEffectivenessScore ?? 0) * 100);
+  const crmFatigueSym = crmHistory.map((c) => (c.fatigueSymmetry ?? 0) * 100);
+  const crmCapLoad    = crmHistory.map((c) => c.captainLoad ?? 0);
+  const crmFoLoad     = crmHistory.map((c) => c.firstOfficerLoad ?? 0);
 
   /* ── Loading / waiting states ── */
   if (status === 'loading' || status === 'waiting') {
@@ -264,42 +284,85 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* ═══ RIGHT SCREEN: ML PERFORMANCE ═══ */}
+        {/* ═══ RIGHT SCREEN: ML PERFORMANCE / CRM ANALYTICS ═══ */}
         <div className="screen-overlay" style={{ ...S.R, padding: '6% 6% 4%' }}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-            {/* Error Probability */}
-            <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>ERROR PROBABILITY</div>
-            <Spark data={errorProbs} color="#DC2626" height={28} />
-            <div style={{ display: 'flex', gap: '10%', margin: '2% 0 5%' }}>
-              <MiniStat label="CURRENT" value={errorProbs.length ? `${errorProbs[errorProbs.length - 1].toFixed(1)}%` : '—'} color="#DC2626" />
-              <MiniStat label="PEAK" value={errorProbs.length ? `${Math.max(...errorProbs).toFixed(1)}%` : '—'} color="#DC2626" />
-            </div>
+            {isCrewMode ? (
+              /* ── Crew-mode CRM analytics ── */
+              <>
+                {/* CRM Effectiveness */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>CRM EFFECTIVENESS</div>
+                <Spark data={crmEff} color="#00FF41" height={28} />
+                <div style={{ display: 'flex', gap: '10%', margin: '2% 0 4%' }}>
+                  <MiniStat label="CURRENT" value={crmEff.length ? `${crmEff[crmEff.length - 1].toFixed(0)}%` : '—'} color="#00FF41" />
+                  <MiniStat label="AVG" value={crmEff.length ? `${(crmEff.reduce((a, b) => a + b, 0) / crmEff.length).toFixed(0)}%` : '—'} color="#00FF41" />
+                </div>
 
-            {/* Fatigue Slope */}
-            <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>FATIGUE SLOPE</div>
-            <Spark data={fatigueData} color="#F59E0B" height={28} />
-            <div style={{ display: 'flex', gap: '10%', margin: '2% 0 5%' }}>
-              <MiniStat label="LATEST" value={fatigueData.length ? fatigueData[fatigueData.length - 1].toFixed(4) : '—'} color="#F59E0B" />
-              <MiniStat label="MAX" value={fatigueData.length ? Math.max(...fatigueData).toFixed(4) : '—'} color="#F59E0B" />
-            </div>
+                {/* Communication Score */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>COMMUNICATION</div>
+                <Spark data={crmComm} color="#00BFFF" height={28} />
+                <div style={{ display: 'flex', gap: '10%', margin: '2% 0 4%' }}>
+                  <MiniStat label="CURRENT" value={crmComm.length ? `${crmComm[crmComm.length - 1].toFixed(0)}%` : '—'} color="#00BFFF" />
+                </div>
 
-            {/* ML Confidence */}
-            <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>ML CONFIDENCE</div>
-            <Spark data={confidences} color="#00C2FF" height={28} />
-            <div style={{ display: 'flex', gap: '8%', marginTop: '2%' }}>
-              <MiniStat label="CURRENT" value={confidences.length ? `${confidences[confidences.length - 1].toFixed(1)}%` : '—'} color="#00C2FF" />
-              <MiniStat label="MIN" value={confidences.length ? `${Math.min(...confidences).toFixed(1)}%` : '—'} color="#F59E0B" />
-              <MiniStat label="AVG" value={`${avgConf}%`} color="#00C2FF" />
-            </div>
+                {/* Fatigue Symmetry */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>FATIGUE SYMMETRY</div>
+                <Spark data={crmFatigueSym} color="#E879F9" height={28} />
+                <div style={{ display: 'flex', gap: '10%', margin: '2% 0 4%' }}>
+                  <MiniStat label="CURRENT" value={crmFatigueSym.length ? `${crmFatigueSym[crmFatigueSym.length - 1].toFixed(0)}%` : '—'} color="#E879F9" />
+                </div>
 
-            {/* Swiss Cheese Alignment */}
-            <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em', marginTop: '4%' }}>SWISS CHEESE</div>
-            <Spark data={swissCheese} color="#E879F9" height={28} />
-            <div style={{ display: 'flex', gap: '10%', marginTop: '2%' }}>
-              <MiniStat label="CURRENT" value={swissCheese.length ? `${swissCheese[swissCheese.length - 1].toFixed(0)}%` : '—'} color="#E879F9" />
-              <MiniStat label="MAX" value={swissCheese.length ? `${Math.max(...swissCheese).toFixed(0)}%` : '—'} color="#FF3333" />
-            </div>
+                {/* Captain vs FO Load */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>CAPTAIN vs FO LOAD</div>
+                <div style={{ position: 'relative', height: 32 }}>
+                  <Spark data={crmCapLoad} color="#00BFFF" height={32} />
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+                    <Spark data={crmFoLoad} color="#FF6B35" height={32} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10%', marginTop: '2%' }}>
+                  <MiniStat label="CAPT" value={crmCapLoad.length ? crmCapLoad[crmCapLoad.length - 1].toFixed(1) : '—'} color="#00BFFF" />
+                  <MiniStat label="FO" value={crmFoLoad.length ? crmFoLoad[crmFoLoad.length - 1].toFixed(1) : '—'} color="#FF6B35" />
+                </div>
+              </>
+            ) : (
+              /* ── Single-pilot ML performance ── */
+              <>
+                {/* Error Probability */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>ERROR PROBABILITY</div>
+                <Spark data={errorProbs} color="#DC2626" height={28} />
+                <div style={{ display: 'flex', gap: '10%', margin: '2% 0 5%' }}>
+                  <MiniStat label="CURRENT" value={errorProbs.length ? `${errorProbs[errorProbs.length - 1].toFixed(1)}%` : '—'} color="#DC2626" />
+                  <MiniStat label="PEAK" value={errorProbs.length ? `${Math.max(...errorProbs).toFixed(1)}%` : '—'} color="#DC2626" />
+                </div>
+
+                {/* Fatigue Slope */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>FATIGUE SLOPE</div>
+                <Spark data={fatigueData} color="#F59E0B" height={28} />
+                <div style={{ display: 'flex', gap: '10%', margin: '2% 0 5%' }}>
+                  <MiniStat label="LATEST" value={fatigueData.length ? fatigueData[fatigueData.length - 1].toFixed(4) : '—'} color="#F59E0B" />
+                  <MiniStat label="MAX" value={fatigueData.length ? Math.max(...fatigueData).toFixed(4) : '—'} color="#F59E0B" />
+                </div>
+
+                {/* ML Confidence */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em' }}>ML CONFIDENCE</div>
+                <Spark data={confidences} color="#00C2FF" height={28} />
+                <div style={{ display: 'flex', gap: '8%', marginTop: '2%' }}>
+                  <MiniStat label="CURRENT" value={confidences.length ? `${confidences[confidences.length - 1].toFixed(1)}%` : '—'} color="#00C2FF" />
+                  <MiniStat label="MIN" value={confidences.length ? `${Math.min(...confidences).toFixed(1)}%` : '—'} color="#F59E0B" />
+                  <MiniStat label="AVG" value={`${avgConf}%`} color="#00C2FF" />
+                </div>
+
+                {/* Swiss Cheese Alignment */}
+                <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em', marginTop: '4%' }}>SWISS CHEESE</div>
+                <Spark data={swissCheese} color="#E879F9" height={28} />
+                <div style={{ display: 'flex', gap: '10%', marginTop: '2%' }}>
+                  <MiniStat label="CURRENT" value={swissCheese.length ? `${swissCheese[swissCheese.length - 1].toFixed(0)}%` : '—'} color="#E879F9" />
+                  <MiniStat label="MAX" value={swissCheese.length ? `${Math.max(...swissCheese).toFixed(0)}%` : '—'} color="#FF3333" />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

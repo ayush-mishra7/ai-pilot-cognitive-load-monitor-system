@@ -70,10 +70,19 @@ export const updateScenario = (sessionId, data) =>
 export const getExplainability = (sessionId) =>
   api.get(`/api/session/${sessionId}/explainability`).then((res) => res.data);
 
+/* ─── CRM History Endpoint ─── */
+
+export const getCrmHistory = (sessionId) =>
+  api.get(`/api/session/${sessionId}/crm-history`).then((res) => res.data);
+
 /* ─── Simulation Endpoints ─── */
 
 export const startSession = (profileType = 'NOVICE') =>
   api.post(`/api/test/simulation/start?profileType=${profileType}`).then((res) => res.data);
+
+/** Starts a crew-mode session with Captain + First Officer. */
+export const startCrewSession = (captainProfile = 'EXPERIENCED', foProfile = 'NOVICE') =>
+  api.post(`/api/test/simulation/start-crew?captainProfile=${captainProfile}&foProfile=${foProfile}`).then((res) => res.data);
 
 export const startSchedule = (sessionId) =>
   api.post(`/api/test/simulation/${sessionId}/start-schedule`).then((res) => res.data);

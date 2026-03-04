@@ -1,5 +1,9 @@
 package com.aipclm.system.simulation.service;
 
+import com.aipclm.system.crm.model.CrewAssignment;
+import com.aipclm.system.crm.repository.CrewAssignmentRepository;
+import com.aipclm.system.crm.service.CrmService;
+import com.aipclm.system.pilot.model.CrewRole;
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.pilot.repository.PilotRepository;
 import com.aipclm.system.scenario.model.*;
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,17 +30,23 @@ public class SimulationEngineService {
     private final PilotRepository pilotRepository;
     private final TelemetryFrameRepository telemetryFrameRepository;
     private final FlightScenarioRepository scenarioRepository;
+    private final CrewAssignmentRepository crewAssignmentRepository;
+    private final CrmService crmService;
 
     private static final java.util.Random RANDOM = new java.util.Random(42); // Seeded for determinism
 
     public SimulationEngineService(FlightSessionRepository flightSessionRepository,
             PilotRepository pilotRepository,
             TelemetryFrameRepository telemetryFrameRepository,
-            FlightScenarioRepository scenarioRepository) {
+            FlightScenarioRepository scenarioRepository,
+            CrewAssignmentRepository crewAssignmentRepository,
+            CrmService crmService) {
         this.flightSessionRepository = flightSessionRepository;
         this.pilotRepository = pilotRepository;
         this.telemetryFrameRepository = telemetryFrameRepository;
         this.scenarioRepository = scenarioRepository;
+        this.crewAssignmentRepository = crewAssignmentRepository;
+        this.crmService = crmService;
     }
 
     @Transactional
@@ -367,6 +378,334 @@ public class SimulationEngineService {
 
         log.info("Frame {} successfully generated and saved. Phase: {}, Alt: {}, Fatigue: {}",
                 nextFrameNumber, phaseOfFlight, Math.round(altitude), String.format("%.1f", fatigueIndex));
+    }
+
+    // ───────────────────── CREW MODE FRAME GENERATION ─────────────────────
+
+    /**
+     * Generates two telemetry frames (Captain + First Officer) for a crew-mode session.
+     * Both frames share the same cockpit state (altitude, airspeed, etc.) but have
+     * individual pilot biometrics and cross-crew stress/fatigue propagation.
+     *
+     * @param sessionId the crew-mode flight session
+     */
+    @Transactional
+    public void generateCrewFrames(UUID sessionId) {
+        log.info("Generating crew telemetry frames for session: {}", sessionId);
+
+        FlightSession session = flightSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+
+        if (session.getStatus() != FlightSessionStatus.RUNNING) {
+            log.warn("Cannot generate crew frames for session {}; status is {}", sessionId, session.getStatus());
+            return;
+        }
+
+        // Determine next frame number (use Captain frame as reference)
+        int nextFrameNumber = session.getTotalFramesGenerated() + 1;
+        var latestOpt = telemetryFrameRepository
+                .findTopByFlightSessionIdAndCrewRoleOrderByFrameNumberDesc(sessionId, CrewRole.CAPTAIN);
+        if (latestOpt.isPresent() && latestOpt.get().getFrameNumber() >= nextFrameNumber) {
+            log.warn("Duplicate crew frame detected for session {} frame {}", sessionId, nextFrameNumber);
+            return;
+        }
+
+        // Load crew assignments
+        List<CrewAssignment> assignments = crewAssignmentRepository.findByFlightSessionId(sessionId);
+        CrewAssignment captainAssignment = assignments.stream()
+                .filter(a -> a.getCrewRole() == CrewRole.CAPTAIN).findFirst()
+                .orElseThrow(() -> new IllegalStateException("No CAPTAIN assigned for session " + sessionId));
+        CrewAssignment foAssignment = assignments.stream()
+                .filter(a -> a.getCrewRole() == CrewRole.FIRST_OFFICER).findFirst()
+                .orElseThrow(() -> new IllegalStateException("No FIRST_OFFICER assigned for session " + sessionId));
+
+        Pilot captainPilot = pilotRepository.findById(captainAssignment.getPilot().getId()).orElseThrow();
+        Pilot foPilot = pilotRepository.findById(foAssignment.getPilot().getId()).orElseThrow();
+
+        // Load scenario
+        FlightScenario scenario = scenarioRepository.findByFlightSessionId(sessionId).orElse(null);
+
+        // ── Shared cockpit state (computed once, shared by both frames) ──
+        int currentSimulationTimeSeconds = nextFrameNumber * session.getFrameFrequencySeconds();
+        PhaseOfFlight phaseOfFlight = determinePhaseOfFlight(currentSimulationTimeSeconds);
+
+        SharedCockpitState cockpit = generateSharedCockpitState(phaseOfFlight, scenario);
+
+        // ── Cross-crew propagation ──
+        double[] captainPropagation = crmService.computeCrossCrewPropagation(sessionId, CrewRole.CAPTAIN);
+        double[] foPropagation = crmService.computeCrossCrewPropagation(sessionId, CrewRole.FIRST_OFFICER);
+
+        // ── Generate individual pilot frames ──
+        boolean captainIsFlying = captainAssignment.isPilotFlying();
+
+        TelemetryFrame captainFrame = buildCrewFrame(session, nextFrameNumber, phaseOfFlight, cockpit,
+                captainPilot, CrewRole.CAPTAIN, captainIsFlying, scenario,
+                currentSimulationTimeSeconds, captainPropagation);
+
+        TelemetryFrame foFrame = buildCrewFrame(session, nextFrameNumber, phaseOfFlight, cockpit,
+                foPilot, CrewRole.FIRST_OFFICER, !captainIsFlying, scenario,
+                currentSimulationTimeSeconds, foPropagation);
+
+        telemetryFrameRepository.save(captainFrame);
+        telemetryFrameRepository.save(foFrame);
+
+        session.setTotalFramesGenerated(nextFrameNumber);
+        flightSessionRepository.save(session);
+
+        log.info("Crew frames {} generated. Captain fatigue={} FO fatigue={} Phase={}",
+                nextFrameNumber,
+                String.format("%.1f", captainFrame.getFatigueIndex()),
+                String.format("%.1f", foFrame.getFatigueIndex()),
+                phaseOfFlight);
+    }
+
+    /**
+     * Shared cockpit state record — environmental values common to both crew members.
+     */
+    private record SharedCockpitState(
+            double altitude, double airspeed, double verticalSpeed,
+            double heading, double pitch, double roll, double yawRate,
+            double turbulenceLevel, double weatherSeverity, boolean autopilotEngaged,
+            double baseAltitude, double baseAirspeed, double baseVerticalSpeed, double baseHeading,
+            double scenarioStressBonus, double scenarioFatigueMultiplier) {}
+
+    /**
+     * Generates the shared cockpit state (altitude, airspeed, weather, etc.)
+     * using the same logic as generateNextFrame but returns the values rather
+     * than building a full frame.
+     */
+    private SharedCockpitState generateSharedCockpitState(PhaseOfFlight phaseOfFlight,
+                                                           FlightScenario scenario) {
+        // ── Baseline values per phase ──
+        double baseAltitude, baseAirspeed, baseVerticalSpeed, baseHeading;
+        switch (phaseOfFlight) {
+            case TAKEOFF -> { baseAltitude = 1500; baseAirspeed = 160; baseVerticalSpeed = 2000; baseHeading = 270; }
+            case CLIMB -> { baseAltitude = 15000; baseAirspeed = 250; baseVerticalSpeed = 1500; baseHeading = 270; }
+            case CRUISE -> { baseAltitude = 35000; baseAirspeed = 450; baseVerticalSpeed = 0; baseHeading = 270; }
+            case DESCENT -> { baseAltitude = 15000; baseAirspeed = 300; baseVerticalSpeed = -1500; baseHeading = 270; }
+            case APPROACH -> { baseAltitude = 3000; baseAirspeed = 180; baseVerticalSpeed = -800; baseHeading = 270; }
+            case LANDING -> { baseAltitude = 500; baseAirspeed = 140; baseVerticalSpeed = -500; baseHeading = 270; }
+            default -> { baseAltitude = 10000; baseAirspeed = 250; baseVerticalSpeed = 0; baseHeading = 270; }
+        }
+
+        double altitude = baseAltitude + RANDOM.nextGaussian() * 200;
+        double airspeed = baseAirspeed + RANDOM.nextGaussian() * 10;
+        double verticalSpeed = baseVerticalSpeed + RANDOM.nextGaussian() * 100;
+        double heading = (baseHeading + RANDOM.nextGaussian() * 2) % 360;
+        double pitch = (baseVerticalSpeed / 100.0) + RANDOM.nextGaussian() * 1.5;
+        double roll = RANDOM.nextGaussian() * 3;
+        double yawRate = RANDOM.nextGaussian() * 0.5;
+        double turbulenceLevel = Math.max(0, Math.min(1, 0.1 + RANDOM.nextGaussian() * 0.05));
+        double weatherSeverity = Math.max(0, Math.min(1, 0.2 + RANDOM.nextGaussian() * 0.1));
+        boolean autopilotEngaged = (phaseOfFlight != PhaseOfFlight.TAKEOFF && phaseOfFlight != PhaseOfFlight.LANDING);
+
+        double scenarioStressBonus = 0.0;
+        double scenarioFatigueMultiplier = 1.0;
+
+        if (scenario != null) {
+            // Apply same scenario modifiers as single-pilot mode (mirrors generateNextFrame)
+
+            // ── Weather → turbulence & weatherSeverity ──
+            double turbulenceMultiplier = switch (scenario.getWeatherCondition()) {
+                case THUNDERSTORM -> 3.0; case SNOW -> 2.2; case ICE -> 2.0;
+                case RAIN -> 1.5; case OVERCAST -> 1.2; case FOG -> 1.0;
+                case CLOUDY -> 1.1; case CLEAR -> 1.0;
+            };
+            turbulenceLevel = Math.min(1.0, turbulenceLevel * turbulenceMultiplier);
+
+            weatherSeverity = switch (scenario.getWeatherCondition()) {
+                case CLEAR -> 0.05; case CLOUDY -> 0.15; case OVERCAST -> 0.25;
+                case RAIN -> 0.45; case FOG -> 0.40; case SNOW -> 0.55;
+                case ICE -> 0.70; case THUNDERSTORM -> 0.90;
+            };
+
+            // ── Visibility → stress bonus ──
+            scenarioStressBonus += switch (scenario.getVisibility()) {
+                case UNLIMITED -> 0.0; case GOOD -> 2.0; case MODERATE -> 8.0;
+                case LOW -> 20.0; case VERY_LOW -> 30.0; case ZERO -> 40.0;
+            };
+
+            // ── Time of Day → stress & fatigue ──
+            if (scenario.getTimeOfDay() == TimeOfDay.NIGHT) {
+                scenarioStressBonus += 15.0;
+                scenarioFatigueMultiplier *= 1.15;
+            } else if (scenario.getTimeOfDay() == TimeOfDay.DUSK) {
+                scenarioStressBonus += 8.0;
+                scenarioFatigueMultiplier *= 1.05;
+            }
+
+            // ── Wind → heading deviation ──
+            double windEffect = scenario.getWindSpeedKnots() / 80.0;
+            heading = (heading + scenario.getCrosswindComponent() * 0.3 * RANDOM.nextGaussian()) % 360;
+            roll += scenario.getCrosswindComponent() * 0.1 * RANDOM.nextGaussian();
+            yawRate += windEffect * RANDOM.nextGaussian() * 1.5;
+
+            // ── Terrain → turbulence ──
+            if (scenario.getTerrainType() == TerrainType.MOUNTAINOUS) {
+                turbulenceLevel = Math.min(1.0, turbulenceLevel + 0.15);
+                altitude = Math.max(altitude, scenario.getAirportElevationFt() + 1000);
+            } else if (scenario.getTerrainType() == TerrainType.URBAN) {
+                turbulenceLevel = Math.min(1.0, turbulenceLevel + 0.05);
+            }
+
+            // ── Runway → landing stress ──
+            if ((phaseOfFlight == PhaseOfFlight.APPROACH || phaseOfFlight == PhaseOfFlight.LANDING)
+                    && scenario.getRunwayCondition() != RunwayCondition.DRY) {
+                double runwayPenalty = switch (scenario.getRunwayCondition()) {
+                    case WET -> 0.10; case CONTAMINATED -> 0.20; case ICY -> 0.30;
+                    case FLOODED -> 0.35; default -> 0.0;
+                };
+                scenarioStressBonus += runwayPenalty * 50;
+                airspeed += runwayPenalty * 10;
+            }
+
+            // ── Mission type → base stress ──
+            scenarioStressBonus += switch (scenario.getMissionType()) {
+                case ROUTINE -> 0.0; case TRAINING -> 5.0; case CARGO -> 2.0;
+                case VIP -> 8.0; case MEDICAL_EVAC -> 15.0; case COMBAT -> 25.0;
+            };
+
+            if (scenario.getEmergencyType() != EmergencyType.NONE) {
+                scenarioStressBonus += 30.0;
+                scenarioFatigueMultiplier *= 1.3;
+                switch (scenario.getEmergencyType()) {
+                    case ENGINE_FAILURE -> { airspeed *= 0.75; verticalSpeed -= 500; }
+                    case HYDRAULIC_LOSS -> { roll += RANDOM.nextGaussian() * 5; pitch += RANDOM.nextGaussian() * 3; }
+                    case FIRE, FUEL_LEAK -> scenarioStressBonus += 20.0;
+                    case CABIN_DEPRESSURIZATION -> { altitude = Math.min(altitude, 10000); verticalSpeed = Math.min(verticalSpeed, -3000); }
+                    case BIRD_STRIKE -> turbulenceLevel = Math.min(1.0, turbulenceLevel + 0.25);
+                    case ELECTRICAL_FAILURE -> { autopilotEngaged = false; scenarioStressBonus += 15.0; }
+                    case GEAR_MALFUNCTION -> { if (phaseOfFlight == PhaseOfFlight.LANDING) scenarioStressBonus += 35.0; }
+                    default -> { /* NONE handled above */ }
+                }
+            }
+
+            if (scenario.getAirportElevationFt() > 3000) {
+                double altPenalty = (scenario.getAirportElevationFt() - 3000) / 10000.0;
+                airspeed *= (1.0 - altPenalty * 0.1);
+                verticalSpeed *= (1.0 - altPenalty * 0.05);
+            }
+        }
+
+        return new SharedCockpitState(altitude, airspeed, verticalSpeed, heading, pitch, roll, yawRate,
+                turbulenceLevel, weatherSeverity, autopilotEngaged,
+                baseAltitude, baseAirspeed, baseVerticalSpeed, baseHeading,
+                scenarioStressBonus, scenarioFatigueMultiplier);
+    }
+
+    /**
+     * Builds a TelemetryFrame for one crew member using shared cockpit state
+     * and individual pilot biometrics.
+     */
+    private TelemetryFrame buildCrewFrame(FlightSession session, int frameNumber,
+                                           PhaseOfFlight phaseOfFlight, SharedCockpitState cockpit,
+                                           Pilot pilot, CrewRole crewRole, boolean isFlying,
+                                           FlightScenario scenario,
+                                           int currentSimulationTimeSeconds, double[] crossCrewPropagation) {
+
+        double scenarioStressBonus = cockpit.scenarioStressBonus();
+        double scenarioFatigueMultiplier = cockpit.scenarioFatigueMultiplier();
+
+        // ── Pilot-specific metrics ──
+        int baseReactionTimeMs = 300;
+        double baseControlJitter = 0.1;
+        double baseChecklistDelay = 2.0;
+        double currentStress = pilot.getBaselineStressSensitivity()
+                + (cockpit.turbulenceLevel() * 20) + scenarioStressBonus;
+        double fatigueAccumulationRate = pilot.getBaselineFatigueRate() * scenarioFatigueMultiplier;
+
+        switch (pilot.getProfileType()) {
+            case NOVICE -> {
+                baseReactionTimeMs += 150;
+                baseControlJitter += 0.2;
+                baseChecklistDelay += 3.0;
+            }
+            case EXPERIENCED -> {
+                baseReactionTimeMs -= 50;
+                baseControlJitter -= 0.05;
+                baseChecklistDelay -= 1.0;
+                currentStress *= 0.8;
+            }
+            case FATIGUE_PRONE -> fatigueAccumulationRate *= 1.5;
+            case HIGH_STRESS -> currentStress *= 1.5;
+        }
+
+        // ── Cross-crew propagation ──
+        currentStress += crossCrewPropagation[0];
+        fatigueAccumulationRate += crossCrewPropagation[1] * 0.01; // subtle fatigue influence
+
+        // ── Pilot Flying vs Monitoring role adjustments ──
+        if (!isFlying) {
+            // Pilot Monitoring has lower control input, higher instrument scan
+            baseReactionTimeMs += 50;  // less time-critical
+            baseControlJitter *= 0.5;  // not actively flying
+            baseChecklistDelay -= 0.5; // better at monitoring checklists
+        }
+
+        int reactionTimeMs = Math.max(150, (int) (baseReactionTimeMs + RANDOM.nextGaussian() * 50));
+        double controlJitterIndex = Math.max(0, baseControlJitter + RANDOM.nextGaussian() * 0.05);
+        double checklistDelaySeconds = Math.max(0, baseChecklistDelay + RANDOM.nextGaussian() * 1.0);
+        double stressIndex = Math.max(0, Math.min(100, currentStress + RANDOM.nextGaussian() * 5));
+        double fatigueIndex = Math.min(100,
+                (currentSimulationTimeSeconds / 60.0) * fatigueAccumulationRate + (stressIndex * 0.1));
+        double heartRate = Math.max(60, 70 + (stressIndex * 0.5) + (fatigueIndex * 0.2) + RANDOM.nextGaussian() * 2);
+        double blinkRate = Math.max(10, 20 - (fatigueIndex * 0.1) + RANDOM.nextGaussian() * 1);
+
+        double controlInputFrequency = isFlying
+                ? (cockpit.autopilotEngaged() ? 0.5 : 2.0 + RANDOM.nextGaussian() * 0.5)
+                : 0.3 + RANDOM.nextGaussian() * 0.1; // PM makes few control inputs
+        double taskSwitchRate = 1.0 + Math.abs(RANDOM.nextGaussian() * 0.2);
+
+        double errorThreshold = (scenario != null && scenario.getEmergencyType() != EmergencyType.NONE) ? 0.80
+                : (scenario != null && scenario.getDifficultyPreset() == DifficultyPreset.EXTREME) ? 0.85 : 0.95;
+        int errorCount = RANDOM.nextDouble() > errorThreshold ? 1 : 0;
+        double instrumentScanVariance = isFlying
+                ? (cockpit.autopilotEngaged() ? 0.8 : 0.4 + RANDOM.nextGaussian() * 0.1)
+                : 0.6 + RANDOM.nextGaussian() * 0.15; // PM scans instruments more broadly
+
+        // ── Deviations (PF-driven, PM has minimal deviations) ──
+        double deviationScale = isFlying ? 1.0 : 0.2;
+        double altitudeDeviation = Math.abs(cockpit.altitude() - cockpit.baseAltitude()) * deviationScale;
+        double verticalSpeedInstability = Math.abs(cockpit.verticalSpeed() - cockpit.baseVerticalSpeed()) * deviationScale;
+        double airspeedDeviation = Math.abs(cockpit.airspeed() - cockpit.baseAirspeed()) * deviationScale;
+        double headingDeviation = Math.abs(cockpit.heading() - cockpit.baseHeading()) * deviationScale;
+        double pitchInstability = Math.abs(cockpit.pitch() - (cockpit.baseVerticalSpeed() / 100.0)) * deviationScale;
+        double rollInstability = Math.abs(cockpit.roll()) * deviationScale;
+
+        return TelemetryFrame.builder()
+                .flightSession(session)
+                .frameNumber(frameNumber)
+                .timestamp(Instant.now())
+                .phaseOfFlight(phaseOfFlight)
+                .crewRole(crewRole)
+                .altitude(cockpit.altitude())
+                .airspeed(cockpit.airspeed())
+                .verticalSpeed(cockpit.verticalSpeed())
+                .heading(cockpit.heading())
+                .pitch(cockpit.pitch())
+                .roll(cockpit.roll())
+                .yawRate(cockpit.yawRate())
+                .turbulenceLevel(cockpit.turbulenceLevel())
+                .weatherSeverity(cockpit.weatherSeverity())
+                .autopilotEngaged(cockpit.autopilotEngaged())
+                .reactionTimeMs(reactionTimeMs)
+                .controlInputFrequency(controlInputFrequency)
+                .checklistDelaySeconds(checklistDelaySeconds)
+                .taskSwitchRate(taskSwitchRate)
+                .errorCount(errorCount)
+                .controlJitterIndex(controlJitterIndex)
+                .instrumentScanVariance(instrumentScanVariance)
+                .heartRate(heartRate)
+                .blinkRate(blinkRate)
+                .fatigueIndex(fatigueIndex)
+                .stressIndex(stressIndex)
+                .altitudeDeviation(altitudeDeviation)
+                .verticalSpeedInstability(verticalSpeedInstability)
+                .airspeedDeviation(airspeedDeviation)
+                .headingDeviation(headingDeviation)
+                .pitchInstability(pitchInstability)
+                .rollInstability(rollInstability)
+                .build();
     }
 
     private PhaseOfFlight determinePhaseOfFlight(int timeSeconds) {

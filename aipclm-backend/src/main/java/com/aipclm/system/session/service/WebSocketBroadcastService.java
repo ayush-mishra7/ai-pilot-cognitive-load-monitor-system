@@ -2,6 +2,9 @@ package com.aipclm.system.session.service;
 
 import com.aipclm.system.cognitive.model.CognitiveState;
 import com.aipclm.system.cognitive.repository.CognitiveStateRepository;
+import com.aipclm.system.crm.model.CrmAssessment;
+import com.aipclm.system.crm.repository.CrmAssessmentRepository;
+import com.aipclm.system.pilot.model.CrewRole;
 import com.aipclm.system.recommendation.model.AIRecommendation;
 import com.aipclm.system.recommendation.repository.AIRecommendationRepository;
 import com.aipclm.system.risk.model.RiskAssessment;
@@ -49,6 +52,7 @@ public class WebSocketBroadcastService {
     private final CognitiveStateRepository cognitiveStateRepository;
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final AIRecommendationRepository recommendationRepository;
+    private final CrmAssessmentRepository crmAssessmentRepository;
 
     /**
      * Broadcast latest state for a session after a pipeline step completes.
@@ -77,6 +81,12 @@ public class WebSocketBroadcastService {
 
             // 1) Full state snapshot → /topic/session/{id}/state
             SessionStateMessage stateMsg = buildStateMessage(sessionId, frame, cogState, risk, recs);
+
+            // Attach crew data if crew mode
+            if (session.isCrewMode()) {
+                attachCrewData(stateMsg, sessionId, frame.getFrameNumber());
+            }
+
             messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/state", stateMsg);
 
             // 2) Cognitive history entry → /topic/session/{id}/cognitive-history
@@ -91,14 +101,32 @@ public class WebSocketBroadcastService {
                 messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/risk-history", riskEntry);
             }
 
-            // 4) Session list update → /topic/sessions
+            // 4) CRM history entry → /topic/session/{id}/crm-history (crew mode only)
+            if (session.isCrewMode()) {
+                CrmAssessment crm = crmAssessmentRepository
+                        .findTopByFlightSessionIdOrderByFrameNumberDesc(sessionId).orElse(null);
+                if (crm != null) {
+                    CrmHistoryEntry crmEntry = CrmHistoryEntry.builder()
+                            .communicationScore(crm.getCommunicationScore())
+                            .workloadDistribution(crm.getWorkloadDistribution())
+                            .authorityGradient(crm.getAuthorityGradient())
+                            .situationalAwareness(crm.getSituationalAwarenessScore())
+                            .crmEffectiveness(crm.getCrmEffectivenessScore())
+                            .fatigueSymmetry(crm.getFatigueSymmetry())
+                            .captainLoad(crm.getCaptainLoad())
+                            .firstOfficerLoad(crm.getFirstOfficerLoad())
+                            .build();
+                    messagingTemplate.convertAndSend("/topic/session/" + sessionId + "/crm-history", crmEntry);
+                }
+            }
+
+            // 5) Session list update → /topic/sessions
             broadcastSessionList();
 
             log.debug("[WebSocket] Broadcast complete for session={} frame={}", sessionId, frame.getFrameNumber());
 
         } catch (Exception e) {
             log.warn("[WebSocket] Broadcast failed for session={}: {}", sessionId, e.getMessage());
-            // Non-critical — don't propagate. REST polling is still available as fallback.
         }
     }
 
@@ -116,6 +144,7 @@ public class WebSocketBroadcastService {
                             .pilotName(s.getPilot() != null ? s.getPilot().getFullName() : "Unknown")
                             .totalFrames(s.getTotalFramesGenerated())
                             .createdAt(s.getCreatedAt())
+                            .crewMode(s.isCrewMode())
                             .build())
                     .collect(Collectors.toList());
             messagingTemplate.convertAndSend("/topic/sessions", summaries);
@@ -125,6 +154,90 @@ public class WebSocketBroadcastService {
     }
 
     // ───────────────────── DTO Builders ─────────────────────
+
+    /**
+     * Attaches crew-specific data to the state message for crew-mode sessions.
+     */
+    private void attachCrewData(SessionStateMessage stateMsg, UUID sessionId, int frameNumber) {
+        try {
+            // Get FO frame for same frame number
+            var frames = telemetryFrameRepository.findByFlightSessionIdAndFrameNumber(sessionId, frameNumber);
+            TelemetryFrame foFrame = frames.stream()
+                    .filter(f -> f.getCrewRole() == CrewRole.FIRST_OFFICER).findFirst().orElse(null);
+            TelemetryFrame captainFrame = frames.stream()
+                    .filter(f -> f.getCrewRole() == CrewRole.CAPTAIN).findFirst().orElse(null);
+
+            if (captainFrame != null && foFrame != null) {
+                CognitiveState captainCog = cognitiveStateRepository
+                        .findByTelemetryFrameId(captainFrame.getId()).orElse(null);
+                CognitiveState foCog = cognitiveStateRepository
+                        .findByTelemetryFrameId(foFrame.getId()).orElse(null);
+
+                stateMsg.setCrewMode(true);
+                stateMsg.setCaptainTelemetry(TelemetryMessage.builder()
+                        .phaseOfFlight(captainFrame.getPhaseOfFlight().name())
+                        .altitude(captainFrame.getAltitude())
+                        .airspeed(captainFrame.getAirspeed())
+                        .turbulenceLevel(captainFrame.getTurbulenceLevel())
+                        .heartRate(captainFrame.getHeartRate())
+                        .stressIndex(captainFrame.getStressIndex())
+                        .fatigueIndex(captainFrame.getFatigueIndex())
+                        .build());
+                stateMsg.setFoTelemetry(TelemetryMessage.builder()
+                        .phaseOfFlight(foFrame.getPhaseOfFlight().name())
+                        .altitude(foFrame.getAltitude())
+                        .airspeed(foFrame.getAirspeed())
+                        .turbulenceLevel(foFrame.getTurbulenceLevel())
+                        .heartRate(foFrame.getHeartRate())
+                        .stressIndex(foFrame.getStressIndex())
+                        .fatigueIndex(foFrame.getFatigueIndex())
+                        .build());
+
+                if (captainCog != null) {
+                    stateMsg.setCaptainCognitive(CognitiveStateMessage.builder()
+                            .expertComputedLoad(captainCog.getExpertComputedLoad())
+                            .mlPredictedLoad(captainCog.getMlPredictedLoad())
+                            .smoothedLoad(captainCog.getSmoothedLoad())
+                            .confidenceScore(captainCog.getConfidenceScore())
+                            .errorProbability(captainCog.getErrorProbability())
+                            .fatigueTrendSlope(captainCog.getFatigueTrendSlope())
+                            .swissCheeseAlignmentScore(captainCog.getSwissCheeseAlignmentScore())
+                            .riskLevel("N/A")
+                            .build());
+                }
+                if (foCog != null) {
+                    stateMsg.setFoCognitive(CognitiveStateMessage.builder()
+                            .expertComputedLoad(foCog.getExpertComputedLoad())
+                            .mlPredictedLoad(foCog.getMlPredictedLoad())
+                            .smoothedLoad(foCog.getSmoothedLoad())
+                            .confidenceScore(foCog.getConfidenceScore())
+                            .errorProbability(foCog.getErrorProbability())
+                            .fatigueTrendSlope(foCog.getFatigueTrendSlope())
+                            .swissCheeseAlignmentScore(foCog.getSwissCheeseAlignmentScore())
+                            .riskLevel("N/A")
+                            .build());
+                }
+            }
+
+            // CRM assessment
+            CrmAssessment crm = crmAssessmentRepository
+                    .findTopByFlightSessionIdOrderByFrameNumberDesc(sessionId).orElse(null);
+            if (crm != null) {
+                stateMsg.setCrmData(CrmDataMessage.builder()
+                        .communicationScore(crm.getCommunicationScore())
+                        .workloadDistribution(crm.getWorkloadDistribution())
+                        .authorityGradient(crm.getAuthorityGradient())
+                        .situationalAwareness(crm.getSituationalAwarenessScore())
+                        .crmEffectiveness(crm.getCrmEffectivenessScore())
+                        .fatigueSymmetry(crm.getFatigueSymmetry())
+                        .captainLoad(crm.getCaptainLoad())
+                        .firstOfficerLoad(crm.getFirstOfficerLoad())
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn("[WebSocket] Failed to attach crew data for session={}: {}", sessionId, e.getMessage());
+        }
+    }
 
     private SessionStateMessage buildStateMessage(UUID sessionId, TelemetryFrame frame,
                                                    CognitiveState cogState, RiskAssessment risk,
@@ -195,6 +308,13 @@ public class WebSocketBroadcastService {
         private TelemetryMessage telemetry;
         private CognitiveStateMessage cognitiveState;
         private List<RecommendationMessage> recommendations;
+        // Crew mode fields (null for single-pilot sessions)
+        @Builder.Default private boolean crewMode = false;
+        private TelemetryMessage captainTelemetry;
+        private TelemetryMessage foTelemetry;
+        private CognitiveStateMessage captainCognitive;
+        private CognitiveStateMessage foCognitive;
+        private CrmDataMessage crmData;
     }
 
     @Data @Builder
@@ -255,5 +375,30 @@ public class WebSocketBroadcastService {
         private String pilotName;
         private int totalFrames;
         private Instant createdAt;
+        @Builder.Default private boolean crewMode = false;
+    }
+
+    @Data @Builder
+    public static class CrmDataMessage {
+        private double communicationScore;
+        private double workloadDistribution;
+        private double authorityGradient;
+        private double situationalAwareness;
+        private double crmEffectiveness;
+        private double fatigueSymmetry;
+        private double captainLoad;
+        private double firstOfficerLoad;
+    }
+
+    @Data @Builder
+    public static class CrmHistoryEntry {
+        private double communicationScore;
+        private double workloadDistribution;
+        private double authorityGradient;
+        private double situationalAwareness;
+        private double crmEffectiveness;
+        private double fatigueSymmetry;
+        private double captainLoad;
+        private double firstOfficerLoad;
     }
 }
