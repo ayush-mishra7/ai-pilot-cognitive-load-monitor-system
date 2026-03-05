@@ -113,6 +113,32 @@ public class TelemetryFrame {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean sensorOverride = false;
 
+    // ── Dynamic Weather fields (Phase 8) ──
+    /** Wind-shear severity index 0.0–1.0. Null when no weather data available. */
+    @Column
+    private Double windShearIndex;
+    /** Icing severity 0.0–1.0. Null when no weather data available. */
+    @Column
+    private Double icingLevel;
+    /** Cloud ceiling in feet AGL from METAR. Null when no weather data. */
+    @Column
+    private Double ceilingFt;
+    /** Visibility in nautical miles from METAR. Null when no weather data. */
+    @Column
+    private Double visibilityNm;
+
+    // ── ADS-B Traffic fields (Phase 8) ──
+    /** Number of nearby aircraft detected via ADS-B. Null when ADS-B inactive. */
+    @Column
+    private Integer nearbyAircraftCount;
+    /** Distance to the closest aircraft in nautical miles. Null when no traffic. */
+    @Column
+    private Double closestAircraftDistanceNm;
+    /** True if a TCAS RA/TA advisory is currently active. */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean tcasAdvisoryActive = false;
+
     private double altitudeDeviation;
     private double verticalSpeedInstability;
     private double airspeedDeviation;

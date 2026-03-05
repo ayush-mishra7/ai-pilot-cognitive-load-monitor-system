@@ -19,6 +19,8 @@ import com.aipclm.system.crm.repository.CrewAssignmentRepository;
 import com.aipclm.system.crm.service.CrmService;
 import com.aipclm.system.scenario.repository.FlightScenarioRepository;
 import com.aipclm.system.sensor.service.SensorIngestionService;
+import com.aipclm.system.weather.service.WeatherService;
+import com.aipclm.system.adsb.service.AdsbService;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.model.FlightSessionStatus;
 import com.aipclm.system.session.repository.FlightSessionRepository;
@@ -200,6 +202,8 @@ class SystemMustNotDoTest {
         @Mock private CrewAssignmentRepository crewAssignmentRepository;
         @Mock private CrmService crmService;
         @Mock private SensorIngestionService sensorIngestionService;
+        @Mock private WeatherService weatherService;
+        @Mock private AdsbService adsbService;
 
         private SimulationEngineService engineService;
 
@@ -207,7 +211,7 @@ class SystemMustNotDoTest {
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
                     telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService,
-                    sensorIngestionService);
+                    sensorIngestionService, weatherService, adsbService);
         }
 
         @Test
@@ -531,6 +535,8 @@ class SystemMustNotDoTest {
         @Mock private CrewAssignmentRepository crewAssignmentRepository;
         @Mock private CrmService crmService;
         @Mock private SensorIngestionService sensorIngestionService;
+        @Mock private WeatherService weatherService;
+        @Mock private AdsbService adsbService;
 
         private SimulationEngineService engineService;
 
@@ -538,7 +544,7 @@ class SystemMustNotDoTest {
         void setUp() {
             engineService = new SimulationEngineService(flightSessionRepository, pilotRepository,
                     telemetryFrameRepository, scenarioRepository, crewAssignmentRepository, crmService,
-                    sensorIngestionService);
+                    sensorIngestionService, weatherService, adsbService);
         }
 
         @Test

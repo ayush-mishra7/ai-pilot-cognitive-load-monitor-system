@@ -1,5 +1,6 @@
 package com.aipclm.system.simulation.service;
 
+import com.aipclm.system.adsb.service.AdsbService;
 import com.aipclm.system.crm.model.CrewAssignment;
 import com.aipclm.system.crm.repository.CrewAssignmentRepository;
 import com.aipclm.system.crm.service.CrmService;
@@ -16,6 +17,8 @@ import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.model.PhaseOfFlight;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
+import com.aipclm.system.weather.model.WeatherObservation;
+import com.aipclm.system.weather.service.WeatherService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +39,24 @@ public class SimulationEngineService {
     private final CrewAssignmentRepository crewAssignmentRepository;
     private final CrmService crmService;
     private final SensorIngestionService sensorIngestionService;
+    private final WeatherService weatherService;
+    private final AdsbService adsbService;
 
     private static final java.util.Random RANDOM = new java.util.Random(42); // Seeded for determinism
+
+    /** ICAO coordinates for common airports (used for ADS-B reference) */
+    private static final Map<String, double[]> AIRPORT_COORDS = Map.ofEntries(
+            Map.entry("KJFK", new double[]{40.6413, -73.7781}),
+            Map.entry("KLAX", new double[]{33.9425, -118.4081}),
+            Map.entry("KORD", new double[]{41.9742, -87.9073}),
+            Map.entry("KATL", new double[]{33.6407, -84.4277}),
+            Map.entry("EGLL", new double[]{51.4700, -0.4543}),
+            Map.entry("LFPG", new double[]{49.0097, 2.5479}),
+            Map.entry("RJTT", new double[]{35.5494, 139.7798}),
+            Map.entry("VHHH", new double[]{22.3080, 113.9185}),
+            Map.entry("OMDB", new double[]{25.2528, 55.3644}),
+            Map.entry("KSFO", new double[]{37.6213, -122.3790})
+    );
 
     public SimulationEngineService(FlightSessionRepository flightSessionRepository,
             PilotRepository pilotRepository,
@@ -45,7 +64,9 @@ public class SimulationEngineService {
             FlightScenarioRepository scenarioRepository,
             CrewAssignmentRepository crewAssignmentRepository,
             CrmService crmService,
-            SensorIngestionService sensorIngestionService) {
+            SensorIngestionService sensorIngestionService,
+            WeatherService weatherService,
+            AdsbService adsbService) {
         this.flightSessionRepository = flightSessionRepository;
         this.pilotRepository = pilotRepository;
         this.telemetryFrameRepository = telemetryFrameRepository;
@@ -53,6 +74,8 @@ public class SimulationEngineService {
         this.crewAssignmentRepository = crewAssignmentRepository;
         this.crmService = crmService;
         this.sensorIngestionService = sensorIngestionService;
+        this.weatherService = weatherService;
+        this.adsbService = adsbService;
     }
 
     @Transactional
@@ -343,6 +366,58 @@ public class SimulationEngineService {
         double pitchInstability = Math.abs(pitch - (baseVerticalSpeed / 100.0));
         double rollInstability = Math.abs(roll);
 
+        // ── Phase 8: Dynamic Weather injection ──
+        Double windShearIndex = null;
+        Double icingLevel = null;
+        Double ceilingFt = null;
+        Double visibilityNm = null;
+        if (session.getIcaoAirport() != null && !session.getIcaoAirport().isBlank()) {
+            try {
+                WeatherObservation wx = weatherService.getLatestCached(session.getIcaoAirport()).orElse(null);
+                if (wx == null) {
+                    wx = weatherService.fetchMetar(session.getIcaoAirport());
+                }
+                if (wx != null) {
+                    weatherSeverity = wx.getWeatherSeverityScore();
+                    windShearIndex = wx.isWindShearReported() ? 0.7 + RANDOM.nextGaussian() * 0.1 : RANDOM.nextDouble() * 0.15;
+                    icingLevel = wx.isIcingReported() ? 0.6 + RANDOM.nextGaussian() * 0.1 : 0.0;
+                    ceilingFt = wx.getCeilingFt() != null ? (double) wx.getCeilingFt() : null;
+                    visibilityNm = wx.getVisibilitySm() != null ? wx.getVisibilitySm() : null;
+                    // Weather-driven stress boost
+                    scenarioStressBonus += weatherSeverity * 20;
+                    turbulenceLevel = Math.min(1.0, turbulenceLevel + weatherSeverity * 0.3);
+                    log.debug("Dynamic weather applied: icao={} severity={} ceiling={} vis={}",
+                            session.getIcaoAirport(), wx.getWeatherSeverityScore(), ceilingFt, visibilityNm);
+                }
+            } catch (Exception e) {
+                log.warn("Weather injection failed for {}: {}", session.getIcaoAirport(), e.getMessage());
+            }
+        }
+
+        // ── Phase 8: ADS-B Traffic injection ──
+        Integer nearbyAircraftCount = null;
+        Double closestAircraftDistanceNm = null;
+        boolean tcasAdvisoryActive = false;
+        if (session.isAdsbMode()) {
+            try {
+                double[] coords = resolveAirportCoords(session.getIcaoAirport());
+                if (coords != null) {
+                    AdsbService.TrafficSummary traffic = adsbService.getTrafficSummary(coords[0], coords[1]);
+                    nearbyAircraftCount = traffic.totalAircraft();
+                    closestAircraftDistanceNm = traffic.closestDistanceNm();
+                    tcasAdvisoryActive = traffic.closestDistanceNm() != null && traffic.closestDistanceNm() < 2.0;
+                    // Traffic density stress
+                    if (traffic.withinFiveNm() > 3) {
+                        scenarioStressBonus += traffic.withinFiveNm() * 2.0;
+                    }
+                    log.debug("ADS-B traffic: {} nearby, closest={}nm, TCAS={}",
+                            nearbyAircraftCount, closestAircraftDistanceNm, tcasAdvisoryActive);
+                }
+            } catch (Exception e) {
+                log.warn("ADS-B injection failed: {}", e.getMessage());
+            }
+        }
+
         TelemetryFrame frame = TelemetryFrame.builder()
                 .flightSession(session)
                 .frameNumber(nextFrameNumber)
@@ -375,6 +450,14 @@ public class SimulationEngineService {
                 .headingDeviation(headingDeviation)
                 .pitchInstability(pitchInstability)
                 .rollInstability(rollInstability)
+                // Phase 8: Weather & ADS-B
+                .windShearIndex(windShearIndex)
+                .icingLevel(icingLevel)
+                .ceilingFt(ceilingFt)
+                .visibilityNm(visibilityNm)
+                .nearbyAircraftCount(nearbyAircraftCount)
+                .closestAircraftDistanceNm(closestAircraftDistanceNm)
+                .tcasAdvisoryActive(tcasAdvisoryActive)
                 .build();
 
         applySensorOverrides(frame, sessionId);
@@ -718,6 +801,13 @@ public class SimulationEngineService {
                 .headingDeviation(headingDeviation)
                 .pitchInstability(pitchInstability)
                 .rollInstability(rollInstability)
+                .windShearIndex(0.0)
+                .icingLevel(0.0)
+                .ceilingFt(12000.0)
+                .visibilityNm(10.0)
+                .nearbyAircraftCount(0)
+                .closestAircraftDistanceNm(99.0)
+                .tcasAdvisoryActive(false)
                 .build();
     }
 
@@ -788,5 +878,14 @@ public class SimulationEngineService {
         } else {
             return PhaseOfFlight.LANDING;
         }
+    }
+
+    /**
+     * Resolve airport ICAO code to lat/lon coordinates for ADS-B queries.
+     * Returns null if the airport is not in our lookup table.
+     */
+    private double[] resolveAirportCoords(String icaoAirport) {
+        if (icaoAirport == null || icaoAirport.isBlank()) return null;
+        return AIRPORT_COORDS.getOrDefault(icaoAirport.toUpperCase(), null);
     }
 }

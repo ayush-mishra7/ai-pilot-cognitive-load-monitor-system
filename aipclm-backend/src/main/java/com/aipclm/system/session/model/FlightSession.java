@@ -68,6 +68,16 @@ public class FlightSession {
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean sensorMode = false;
 
+    // ── Phase 8: Dynamic Weather & ADS-B ──
+    /** ICAO airport code for weather station (e.g. "KJFK"). Null = no dynamic weather. */
+    @Column(length = 4)
+    private String icaoAirport;
+
+    /** When true, ADS-B traffic shadow-monitoring is active for the session. */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean adsbMode = false;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 

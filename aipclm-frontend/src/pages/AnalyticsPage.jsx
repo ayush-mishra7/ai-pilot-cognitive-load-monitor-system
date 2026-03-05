@@ -30,6 +30,8 @@ export default function AnalyticsPage() {
   const [crmHistory, setCrmHistory] = useState([]);
   const [shapData, setShapData] = useState(null);
   const [status, setStatus] = useState('loading');   // loading | live | waiting | error
+  const [wxSeverityHistory, setWxSeverityHistory] = useState([]);
+  const [trafficHistory, setTrafficHistory] = useState([]);
   const pollRef = useRef(null);
 
   /* Set this session as globally active */
@@ -106,6 +108,20 @@ export default function AnalyticsPage() {
     validSession ? `/topic/session/${sessionId}/crm-history` : null,
     useCallback((entry) => {
       setCrmHistory((prev) => [...prev, entry]);
+    }, [])
+  );
+
+  /* Weather & traffic from state topic — accumulate severity/traffic per frame */
+  useWebSocket(
+    validSession ? `/topic/session/${sessionId}/state` : null,
+    useCallback((data) => {
+      const tel = data?.telemetry;
+      if (tel?.weatherSeverity != null) {
+        setWxSeverityHistory((prev) => [...prev, tel.weatherSeverity * 100]);
+      }
+      if (tel?.nearbyAircraftCount != null) {
+        setTrafficHistory((prev) => [...prev, tel.nearbyAircraftCount]);
+      }
     }, [])
   );
 
@@ -361,6 +377,30 @@ export default function AnalyticsPage() {
                   <MiniStat label="CURRENT" value={swissCheese.length ? `${swissCheese[swissCheese.length - 1].toFixed(0)}%` : '—'} color="#E879F9" />
                   <MiniStat label="MAX" value={swissCheese.length ? `${Math.max(...swissCheese).toFixed(0)}%` : '—'} color="#FF3333" />
                 </div>
+
+                {/* Weather Severity (only shown when weather data is present) */}
+                {wxSeverityHistory.length > 0 && (
+                  <>
+                    <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em', marginTop: '4%' }}>WEATHER SEVERITY</div>
+                    <Spark data={wxSeverityHistory} color="#FFD700" height={28} />
+                    <div style={{ display: 'flex', gap: '10%', marginTop: '2%' }}>
+                      <MiniStat label="CURRENT" value={wxSeverityHistory.length ? `${wxSeverityHistory[wxSeverityHistory.length - 1].toFixed(0)}%` : '—'} color="#FFD700" />
+                      <MiniStat label="PEAK" value={wxSeverityHistory.length ? `${Math.max(...wxSeverityHistory).toFixed(0)}%` : '—'} color="#FF3333" />
+                    </div>
+                  </>
+                )}
+
+                {/* ADS-B Traffic (only shown when traffic data is present) */}
+                {trafficHistory.length > 0 && (
+                  <>
+                    <div className="digi-label" style={{ fontSize: '0.95em', marginBottom: '0.2em', marginTop: '4%' }}>NEARBY TRAFFIC</div>
+                    <Spark data={trafficHistory} color="#00C2FF" height={28} />
+                    <div style={{ display: 'flex', gap: '10%', marginTop: '2%' }}>
+                      <MiniStat label="CURRENT" value={trafficHistory.length ? `${trafficHistory[trafficHistory.length - 1]}` : '—'} color="#00C2FF" />
+                      <MiniStat label="PEAK" value={trafficHistory.length ? `${Math.max(...trafficHistory)}` : '—'} color="#FF6B35" />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

@@ -24,6 +24,20 @@ ml:
     url: http://localhost:8001
     timeout-ms: 5000
 
+# ── Phase 8: Dynamic Weather & ADS-B ──
+weather:
+  api:
+    base-url: https://avwx.rest/api
+    key: ""          # Set your AVWX API key for live METAR/TAF. Empty = synthetic mode.
+    timeout-ms: 5000
+
+adsb:
+  api:
+    base-url: https://opensky-network.org/api
+    username: ""     # OpenSky username (optional, anonymous access works but rate-limited)
+    password: ""
+    timeout-ms: 8000
+
 # ── Phase 7: Observability ──
 management:
   endpoints:

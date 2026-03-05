@@ -88,6 +88,10 @@ export const startCrewSession = (captainProfile = 'EXPERIENCED', foProfile = 'NO
 export const startSensorSession = (profileType = 'EXPERIENCED') =>
   api.post(`/api/test/simulation/start-sensor?profileType=${profileType}`).then((res) => res.data);
 
+/** Starts a weather/ADS-B enabled session. */
+export const startWeatherSession = (profileType = 'EXPERIENCED', icaoAirport = 'KJFK', adsbMode = false) =>
+  api.post(`/api/test/simulation/start-weather?profileType=${profileType}&icaoAirport=${icaoAirport}&adsbMode=${adsbMode}`).then((res) => res.data);
+
 export const startSchedule = (sessionId) =>
   api.post(`/api/test/simulation/${sessionId}/start-schedule`).then((res) => res.data);
 
@@ -127,5 +131,37 @@ export const ingestSensorReading = (deviceId, rawValue, unit, signalQuality = 1.
 /** Ingest batch sensor readings. */
 export const ingestSensorBatch = (deviceId, readings) =>
   api.post('/api/sensor/reading/batch', { deviceId, readings }).then((res) => res.data);
+
+/* ─── Weather Endpoints ─── */
+
+/** Fetch fresh METAR for an ICAO airport. */
+export const fetchMetar = (icao) =>
+  api.post(`/api/weather/metar/${icao}`).then((res) => res.data);
+
+/** Fetch fresh TAF for an ICAO airport. */
+export const fetchTaf = (icao) =>
+  api.post(`/api/weather/taf/${icao}`).then((res) => res.data);
+
+/** Get latest cached METAR. */
+export const getLatestWeather = (icao) =>
+  api.get(`/api/weather/metar/${icao}`).then((res) => res.data);
+
+/** Get METAR history for an ICAO airport. */
+export const getWeatherHistory = (icao) =>
+  api.get(`/api/weather/history/${icao}`).then((res) => res.data);
+
+/* ─── ADS-B Endpoints ─── */
+
+/** Fetch nearby aircraft from ADS-B source. */
+export const fetchNearbyAircraft = (lat, lon) =>
+  api.post(`/api/adsb/fetch?lat=${lat}&lon=${lon}`).then((res) => res.data);
+
+/** Get cached nearby aircraft. */
+export const getNearbyAircraft = (lat, lon) =>
+  api.get(`/api/adsb/nearby?lat=${lat}&lon=${lon}`).then((res) => res.data);
+
+/** Get ADS-B traffic summary. */
+export const getTrafficSummary = (lat, lon) =>
+  api.get(`/api/adsb/summary?lat=${lat}&lon=${lon}`).then((res) => res.data);
 
 export default api;

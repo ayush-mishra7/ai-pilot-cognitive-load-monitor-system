@@ -186,6 +186,37 @@ public class SessionTestController {
                                 "firstOfficerId", fo.getId()));
         }
 
+        /**
+         * Starts a weather-enabled session with optional ADS-B traffic monitoring.
+         * Provide an ICAO airport code (e.g. KJFK) for dynamic METAR/TAF weather injection.
+         * Set adsbMode=true to enable ADS-B traffic shadow-monitoring.
+         */
+        @PostMapping("/start-weather")
+        public ResponseEntity<Map<String, Object>> startWeatherSession(
+                        @RequestParam(defaultValue = "EXPERIENCED") PilotProfileType profileType,
+                        @RequestParam(defaultValue = "KJFK") String icaoAirport,
+                        @RequestParam(defaultValue = "false") boolean adsbMode) {
+                Pilot pilot = pilotRepository.save(Pilot.builder()
+                                .fullName("Weather Pilot " + profileType)
+                                .profileType(profileType)
+                                .baselineStressSensitivity(1.0)
+                                .baselineFatigueRate(1.0)
+                                .build());
+                FlightSession session = flightSessionRepository.save(FlightSession.builder()
+                                .pilot(pilot)
+                                .sessionStartTime(Instant.now())
+                                .status(FlightSessionStatus.RUNNING)
+                                .icaoAirport(icaoAirport.toUpperCase())
+                                .adsbMode(adsbMode)
+                                .build());
+                webSocketBroadcastService.broadcastSessionList();
+                return ResponseEntity.ok(Map.of(
+                                "sessionId", session.getId(),
+                                "icaoAirport", icaoAirport.toUpperCase(),
+                                "adsbMode", adsbMode,
+                                "pilotId", pilot.getId()));
+        }
+
         @PostMapping("/{sessionId}/generate-frame")
         public ResponseEntity<String> generateFrame(@PathVariable UUID sessionId) {
                 simulationEngineService.generateNextFrame(sessionId);

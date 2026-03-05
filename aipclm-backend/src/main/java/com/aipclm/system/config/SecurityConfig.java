@@ -43,6 +43,10 @@ public class SecurityConfig {
                 // Actuator endpoints — Prometheus scraping (Phase 7)
                 .requestMatchers("/actuator/**").permitAll()
 
+                // Weather & ADS-B endpoints (Phase 8)
+                .requestMatchers("/api/weather/**").permitAll()
+                .requestMatchers("/api/adsb/**").permitAll()
+
                 // ATC endpoints — require ATC or ADMIN role
                 .requestMatchers("/api/atc/**").hasAnyRole("ATC", "ADMIN")
 

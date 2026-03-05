@@ -135,6 +135,9 @@ Built for **aviation safety researchers**, **human factors engineers**, and **co
 | 📡 **Sensor Data Override** | Real-time biometric override — live sensor readings replace simulated values (HR, EEG bands, pupil diameter, GSR, SpO2, skin temperature) |
 | 🔌 **Quick-Register Preset Devices** | One-click registration of 6 industry-standard devices (Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4) |
 | ◉ **LIVE SENSOR Dashboard** | Animated "LIVE SENSOR" badge and dedicated biometric rows (GSR, SpO2, Skin Temp, EEG α/β/θ, Pupil, Gaze) on cockpit dashboard |
+| 🌦️ **Dynamic Weather Integration** | AVWX REST API for live METAR/TAF with 5-profile synthetic fallback (CLEAR/MARGINAL/IFR/STORMY/SEVERE). Weather severity scoring, wind shear, icing, ceiling, visibility injected into simulation |
+| 📡 **ADS-B Traffic Surveillance** | OpenSky Network API for real-time aircraft tracking with synthetic traffic generator (3–11 aircraft). TCAS advisory detection, traffic density stress modifiers, haversine distance calculation |
+| 🛫 **Weather-Aware Cockpit** | Dashboard weather/ADS-B rows (WX SEV, VIS, CEIL, SHEAR, ICING, TRAFFIC, CLOS AC, TCAS RA). Analytics sparklines for weather severity and nearby traffic trends. ICAO airport selector with ADS-B toggle |
 
 ---
 
@@ -730,6 +733,23 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up --bu
 | `GET` | `/api/sensor/session/{id}/readings` | Get all readings for a session |
 | `POST` | `/api/sensor/quick-register` | One-click register all 6 preset devices |
 
+### Weather Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/weather/metar/{icao}` | Fetch fresh METAR for an ICAO airport (live API or synthetic) |
+| `POST` | `/api/weather/taf/{icao}` | Fetch fresh TAF for an ICAO airport |
+| `GET` | `/api/weather/metar/{icao}` | Get latest cached METAR observation |
+| `GET` | `/api/weather/history/{icao}` | Get METAR history (up to 20 observations) |
+
+### ADS-B Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/adsb/fetch?lat=&lon=` | Fetch nearby aircraft from OpenSky Network (or synthetic) |
+| `GET` | `/api/adsb/nearby?lat=&lon=` | Get cached nearby aircraft |
+| `GET` | `/api/adsb/summary?lat=&lon=` | Get traffic summary (count, closest distance, within 5nm) |
+
 ### ML Inference Service (`:8001`)
 
 | Method | Endpoint | Description |
@@ -811,13 +831,13 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 | **5** | **Wearable & Sensor Integration** | ✅ Done | 6-type sensor device registry (HRM, EEG, Eye Tracker, GSR, Pulse Oximeter, Skin Temp) with auto-calibration and connection lifecycle. SensorDevice + SensorReading entities with normalized ingestion. Live biometric override — `applySensorOverrides()` replaces simulated telemetry (HR, EEG α/β/θ bands, pupil diameter, gaze fixation, blink rate, GSR, SpO₂, skin temperature) with real sensor data. Quick-register preset devices (Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4). Sensor mode toggle on Home page, animated LIVE SENSOR badge + dedicated biometric rows on Dashboard. WebSocket sensor status broadcast. |
 | **6** | **Containerization & Orchestration** | ✅ Done | **Docker** — Multi-stage Dockerfiles for backend (JDK 17 → JRE 17), frontend (Node 20 → Nginx 1.27), and ML service (Python 3.11 with native build → slim runtime). Docker Compose for single-command full-stack startup with PostgreSQL, health checks, and dependency ordering. **Kubernetes** — Raw manifests (`k8s/`) for all services plus namespace, ConfigMap, Secret, PVC, and Ingress with WebSocket support. Helm chart (`helm/aipclm/`) with parameterized `values.yaml` for production deployment. **HPA** — Horizontal Pod Autoscaler for ML inference (2–8 pods, CPU 70% / memory 80% target). Nginx reverse-proxy with API/WebSocket passthrough, gzip, and SPA fallback. Non-root containers with resource limits. |
 | **7** | **CI/CD & Observability** | ✅ Done | **CI/CD** — GitHub Actions 4-job pipeline: test-backend (Maven + PostgreSQL service), test-ml (Ruff lint + import validation), test-frontend (ESLint + Vite build), docker-build (multi-arch GHCR push with matrix strategy, GHA cache). **Monitoring** — Spring Boot Actuator with Micrometer Prometheus registry; custom `aipclm.pipeline.steps`, `aipclm.pipeline.failures`, `aipclm.pipeline.step.duration`, `aipclm.ml.inference.duration`, `aipclm.ml.inference.fallbacks` metrics. ML Service instrumented with `prometheus-fastapi-instrumentator`. Prometheus scrape config for both services. Grafana 11 with auto-provisioned datasources and 10-panel dashboard (pipeline throughput, latency percentiles, ML fallback rate, HTTP status breakdown, JVM heap, HikariCP pool). **Distributed Tracing** — OpenTelemetry (Micrometer bridge on backend, `opentelemetry-instrumentation-fastapi` on ML service) exporting to Jaeger all-in-one via OTLP HTTP. Trace ID + span ID injected into Spring Boot log pattern. Observability stack via `docker-compose.observability.yml` overlay. |
+| **8** | **Dynamic Weather & ADS-B** | ✅ Done | **Weather** — AVWX REST API integration for live METAR/TAF fetches with synthetic fallback (5 weighted weather profiles: CLEAR/MARGINAL/IFR/STORMY/SEVERE). WeatherObservation entity with severity scoring (0–1 composite from wind, visibility, ceiling, hazards). Dynamic weather injection into simulation — windShearIndex, icingLevel, ceilingFt, visibilityNm, weatherSeverity fields on TelemetryFrame with stress modifiers. **ADS-B** — OpenSky Network API integration for real-time aircraft surveillance with synthetic traffic generator (3–11 aircraft, haversine distance, realistic callsigns). AdsbAircraft entity with nearbyAircraftCount, closestAircraftDistanceNm, tcasAdvisoryActive fields. Traffic density stress boost in simulation engine. **Frontend** — ICAO airport input + ADS-B toggle on Home page. Weather/ADS-B telemetry rows (WX SEV, VIS, CEIL, SHEAR, ICING, TRAFFIC, CLOS AC, TCAS) on Dashboard. Weather severity + traffic density sparklines on Analytics page. Session badges (WX:KJFK, ADS-B). |
 
 ### Upcoming Phases
 
 | Phase | Name | Status | Description |
 |:-----:|------|:------:|-------------|
 
-| **8** | **Dynamic Weather & ADS-B** | 📋 Planned | Real-time METAR/TAF weather API integration. ADS-B live feed ingestion for shadow-monitoring actual flights in research mode. |
 
 ### Infrastructure Goals
 

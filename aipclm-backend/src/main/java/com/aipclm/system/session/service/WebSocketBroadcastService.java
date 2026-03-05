@@ -146,6 +146,8 @@ public class WebSocketBroadcastService {
                             .createdAt(s.getCreatedAt())
                             .crewMode(s.isCrewMode())
                             .sensorMode(s.isSensorMode())
+                            .icaoAirport(s.getIcaoAirport())
+                            .adsbMode(s.isAdsbMode())
                             .build())
                     .collect(Collectors.toList());
             messagingTemplate.convertAndSend("/topic/sessions", summaries);
@@ -174,6 +176,15 @@ public class WebSocketBroadcastService {
                 .pupilDiameter(frame.getPupilDiameter())
                 .gazeFixationDurationMs(frame.getGazeFixationDurationMs())
                 .sensorOverride(frame.isSensorOverride())
+                // Phase 8: Weather & ADS-B
+                .weatherSeverity(frame.getWeatherSeverity())
+                .windShearIndex(frame.getWindShearIndex())
+                .icingLevel(frame.getIcingLevel())
+                .ceilingFt(frame.getCeilingFt())
+                .visibilityNm(frame.getVisibilityNm())
+                .nearbyAircraftCount(frame.getNearbyAircraftCount())
+                .closestAircraftDistanceNm(frame.getClosestAircraftDistanceNm())
+                .tcasAdvisoryActive(frame.isTcasAdvisoryActive())
                 .build();
     }
 
@@ -334,6 +345,15 @@ public class WebSocketBroadcastService {
         private Double pupilDiameter;
         private Double gazeFixationDurationMs;
         @Builder.Default private boolean sensorOverride = false;
+        // Phase 8: Weather & ADS-B
+        private double weatherSeverity;
+        private Double windShearIndex;
+        private Double icingLevel;
+        private Double ceilingFt;
+        private Double visibilityNm;
+        private Integer nearbyAircraftCount;
+        private Double closestAircraftDistanceNm;
+        @Builder.Default private boolean tcasAdvisoryActive = false;
     }
 
     @Data @Builder
@@ -385,6 +405,9 @@ public class WebSocketBroadcastService {
         private Instant createdAt;
         @Builder.Default private boolean crewMode = false;
         @Builder.Default private boolean sensorMode = false;
+        // Phase 8
+        private String icaoAirport;
+        @Builder.Default private boolean adsbMode = false;
     }
 
     @Data @Builder

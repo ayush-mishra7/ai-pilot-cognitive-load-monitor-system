@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { startSession, startCrewSession, startSensorSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario, quickRegisterSensors, listSensorDevices, connectSensorDevice } from '../services/api';
+import { startSession, startCrewSession, startSensorSession, startWeatherSession, startSchedule, stopSession, listSessions, deleteSession, healthCheck, purgeAllSessions, createScenario, quickRegisterSensors, listSensorDevices, connectSensorDevice } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import ScenarioConfigurator, { DEFAULT_SCENARIO } from '../components/ScenarioConfigurator';
@@ -22,6 +22,8 @@ export default function HomePage() {
   const [crewMode, setCrewMode] = useState(false);            // CRM crew toggle
   const [sensorMode, setSensorMode] = useState(false);        // Wearable sensor toggle
   const [foProfileType, setFoProfileType] = useState('NOVICE'); // FO profile
+  const [icaoAirport, setIcaoAirport] = useState('');           // Weather ICAO airport (e.g. KJFK)
+  const [adsbMode, setAdsbMode] = useState(false);              // ADS-B traffic toggle
   const pollRef = useRef(null);
 
   /* ─── Fetch sessions (polled while RUNNING sessions exist) ─── */
@@ -80,6 +82,9 @@ export default function HomePage() {
             }
           }
         } catch { /* sensor setup optional */ }
+      } else if (icaoAirport.trim().length >= 3) {
+        const result = await startWeatherSession(profileType, icaoAirport.trim().toUpperCase(), adsbMode);
+        sessionId = result.sessionId;
       } else {
         sessionId = await startSession(profileType);
       }
@@ -215,6 +220,38 @@ export default function HomePage() {
                 </span>
               )}
             </div>
+
+            {/* Weather / ADS-B config (hidden in crew & sensor modes) */}
+            {!crewMode && !sensorMode && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={icaoAirport}
+                  onChange={(e) => setIcaoAirport(e.target.value.toUpperCase().slice(0, 4))}
+                  placeholder="ICAO (e.g. KJFK)"
+                  maxLength={4}
+                  style={{
+                    width: '7rem', fontSize: '0.7rem', padding: '0.25rem 0.5rem',
+                    background: 'rgba(0,255,65,0.05)', border: '1px solid rgba(0,255,65,0.2)',
+                    borderRadius: '4px', color: '#CCD6F6', fontFamily: "'Share Tech Mono', monospace",
+                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                  }}
+                />
+                <button
+                  onClick={() => setAdsbMode((v) => !v)}
+                  className={`hud-btn ${adsbMode ? 'hud-btn--primary' : 'hud-btn--ghost'}`}
+                  style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}
+                  disabled={!icaoAirport.trim()}
+                >
+                  {adsbMode ? '📡 ADS-B ON' : '📡 ADS-B OFF'}
+                </button>
+                {icaoAirport.trim() && (
+                  <span style={{ fontSize: '0.6rem', color: '#00FF41', letterSpacing: '0.05em' }}>
+                    Weather: {icaoAirport.trim()}{adsbMode ? ' · ADS-B traffic active' : ''}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Captain / Pilot profile selector */}
             <div style={{ marginBottom: '0.15rem' }}>
@@ -396,6 +433,20 @@ export default function HomePage() {
                             background: 'rgba(232,121,249,0.15)', border: '1px solid rgba(232,121,249,0.4)',
                             borderRadius: '3px', color: '#E879F9', letterSpacing: '0.08em'
                           }}>SENSOR</span>
+                        )}
+                        {s.icaoAirport && (
+                          <span style={{
+                            marginLeft: '0.4rem', fontSize: '0.55rem', padding: '0.1rem 0.35rem',
+                            background: 'rgba(0,255,65,0.12)', border: '1px solid rgba(0,255,65,0.35)',
+                            borderRadius: '3px', color: '#00FF41', letterSpacing: '0.08em'
+                          }}>WX:{s.icaoAirport}</span>
+                        )}
+                        {s.adsbMode && (
+                          <span style={{
+                            marginLeft: '0.4rem', fontSize: '0.55rem', padding: '0.1rem 0.35rem',
+                            background: 'rgba(0,194,255,0.12)', border: '1px solid rgba(0,194,255,0.35)',
+                            borderRadius: '3px', color: '#00C2FF', letterSpacing: '0.08em'
+                          }}>ADS-B</span>
                         )}
                       </div>
                     </div>

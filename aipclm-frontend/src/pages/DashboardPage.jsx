@@ -125,6 +125,20 @@ export default function DashboardPage() {
     tel.gazeFixationDurationMs != null && { label: 'GAZE', val: tel.gazeFixationDurationMs.toFixed(0), unit: 'ms', color: '#F472B6' },
   ].filter(Boolean) : [];
 
+  /* ── Weather & ADS-B rows (shown when weather data present) ── */
+  const hasWeather = tel.weatherSeverity != null && tel.weatherSeverity > 0;
+  const hasAdsb = tel.nearbyAircraftCount != null && tel.nearbyAircraftCount > 0;
+  const wxRows = [
+    hasWeather && tel.weatherSeverity != null   && { label: 'WX SEV',   val: (tel.weatherSeverity * 100).toFixed(0),        unit: '%',  color: tel.weatherSeverity > 0.6 ? '#FF3333' : tel.weatherSeverity > 0.3 ? '#FFD700' : '#00FF41' },
+    hasWeather && tel.visibilityNm != null       && { label: 'VIS',      val: tel.visibilityNm.toFixed(1),                   unit: 'NM', color: tel.visibilityNm < 3 ? '#FF3333' : '#00FF41' },
+    hasWeather && tel.ceilingFt != null          && { label: 'CEIL',     val: tel.ceilingFt.toFixed(0),                      unit: 'FT', color: tel.ceilingFt < 1000 ? '#FF3333' : '#00FF41' },
+    hasWeather && tel.windShearIndex != null      && { label: 'SHEAR',   val: (tel.windShearIndex * 100).toFixed(0),          unit: '%',  color: '#FFD700' },
+    hasWeather && tel.icingLevel != null          && { label: 'ICING',   val: (tel.icingLevel * 100).toFixed(0),              unit: '%',  color: '#00C2FF' },
+    hasAdsb && tel.nearbyAircraftCount != null    && { label: 'TRAFFIC', val: tel.nearbyAircraftCount,                        unit: 'AC', color: '#00C2FF' },
+    hasAdsb && tel.closestAircraftDistanceNm != null && { label: 'CLOS AC', val: tel.closestAircraftDistanceNm.toFixed(1),    unit: 'NM', color: tel.closestAircraftDistanceNm < 2 ? '#FF3333' : '#00FF41' },
+    tel.tcasAdvisoryActive && { label: 'TCAS',    val: 'RA',                                                                  unit: '',   color: '#FF3333' },
+  ].filter(Boolean);
+
   /* ── Loading / waiting / not-found states ── */
   if (status === 'loading' || status === 'waiting' || status === 'not-found') {
     const heading = status === 'not-found' ? 'INVALID SESSION'
@@ -248,6 +262,26 @@ export default function DashboardPage() {
                         <span className="digi-label" style={{ marginLeft: '0.3em', fontSize: '0.75em' }}>
                           {t.unit}
                         </span>
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+              {wxRows.length > 0 && (
+                <>
+                  <div style={{ height: '1px', background: 'rgba(0,255,65,0.2)', margin: '0.15em 0' }} />
+                  {wxRows.map((t) => (
+                    <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <span className="digi-label" style={{ fontSize: '0.85em' }}>{t.label}</span>
+                      <span>
+                        <span className="digi-value" style={{ color: t.color, fontSize: '0.95em' }}>
+                          {t.val}
+                        </span>
+                        {t.unit && (
+                          <span className="digi-label" style={{ marginLeft: '0.3em', fontSize: '0.75em' }}>
+                            {t.unit}
+                          </span>
+                        )}
                       </span>
                     </div>
                   ))}
