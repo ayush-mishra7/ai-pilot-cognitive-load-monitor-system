@@ -1,0 +1,14 @@
+# ──────────────────────────────────────────────────────
+#  ConfigMap — shared, non-secret configuration
+# ──────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aipclm-config
+  namespace: aipclm
+  labels:
+    app.kubernetes.io/part-of: aipclm
+data:
+  POSTGRES_DB: aipclm_db
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aipclm_db
+  ML_SERVICE_URL: http://ml-service:8001

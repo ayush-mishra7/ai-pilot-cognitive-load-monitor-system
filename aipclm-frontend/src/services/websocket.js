@@ -15,7 +15,7 @@ import SockJS from 'sockjs-client/dist/sockjs';
  *   /topic/sessions                       — session list updates
  */
 
-const WS_URL = 'http://localhost:8080/ws';
+const WS_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080') + '/ws';
 
 let stompClient = null;
 let connected = false;

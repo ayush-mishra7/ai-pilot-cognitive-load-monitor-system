@@ -1,0 +1,83 @@
+# ──────────────────────────────────────────────────────
+#  Default values for the aipclm Helm chart
+# ──────────────────────────────────────────────────────
+
+# -- Global settings
+namespace: aipclm
+
+# -- PostgreSQL
+postgres:
+  image: postgres:16-alpine
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  credentials:
+    database: aipclm_db
+    username: postgres
+    password: postgres
+
+# -- Backend (Spring Boot)
+backend:
+  image:
+    repository: aipclm/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  jwtSecret: aipclm-super-secret-key-that-is-at-least-32-bytes-long-2026
+
+# -- ML Service (FastAPI)
+mlService:
+  image:
+    repository: aipclm/ml-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+
+# -- Frontend (Nginx)
+frontend:
+  image:
+    repository: aipclm/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+# -- Ingress
+ingress:
+  enabled: true
+  className: nginx
+  host: aipclm.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"

@@ -604,6 +604,46 @@ Open `http://localhost:5174` in your browser. Use the pre-seeded demo accounts:
 | **PILOT** | `pilot@aipclm.com` | `pilot123` | ALPHA-7 |
 | **ATC** | `tower@aipclm.com` | `tower123` | TOWER-1 |
 
+### 🐳 Docker — Single-Command Startup (Alternative)
+
+Skip steps 2–5 above and run the entire stack with one command:
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost |
+| Backend API | http://localhost:8080 |
+| ML Service | http://localhost:8001 |
+| PostgreSQL | localhost:5432 |
+
+> Docker Compose provisions PostgreSQL automatically — no manual DB setup needed.  
+> To reset data: `docker compose down -v && docker compose up --build`
+
+### ☸️ Kubernetes Deployment
+
+**Raw manifests (for dev/testing):**
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/
+```
+
+**Helm chart (for production):**
+
+```bash
+helm install aipclm ./helm/aipclm
+# Override values:
+helm install aipclm ./helm/aipclm \
+  --set backend.jwtSecret=<production-secret> \
+  --set postgres.credentials.password=<strong-password> \
+  --set ingress.host=aipclm.yourdomain.com
+```
+
+The Helm chart includes a **Horizontal Pod Autoscaler** for the ML service (2–8 replicas, CPU 70% target).
+
 ---
 
 ## 📡 API Endpoints
@@ -753,13 +793,13 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 | **3** | **Advanced ML Pipeline** | ✅ Done | Trained GradientBoosting model (R²=0.981, MAE=2.13) on 50K synthetic dataset. Confidence-weighted expert–ML fusion, EMA smoothing (α=0.3), fatigue trend slope (OLS on 10-frame window), Swiss Cheese 4-barrier alignment score. SHAP TreeExplainer with `/explain` endpoint. Dynamic confidence via uncertainty model. Cockpit SHAP driver bars and Swiss Cheese sparkline on Analytics page. |
 | **4** | **Multi-Pilot & CRM Simulation** | ✅ Done | Captain + First Officer dual-crew cockpit with shared cockpit state and PF/PM role differentiation. 7-metric CRM assessment engine (communication, workload distribution, authority gradient, situational awareness, fatigue symmetry, cross-crew stress contagion, CRM effectiveness). Cross-crew fatigue propagation (stress contagion 0.15, fatigue convergence 0.10). Dual-crew dashboard with side-by-side biometrics, dual cognitive load gauges, and real-time CRM HUD. CRM analytics sparklines on Analytics page. CrewAssignment + CrmAssessment entities, crew-aware WebSocket broadcast. |
 | **5** | **Wearable & Sensor Integration** | ✅ Done | 6-type sensor device registry (HRM, EEG, Eye Tracker, GSR, Pulse Oximeter, Skin Temp) with auto-calibration and connection lifecycle. SensorDevice + SensorReading entities with normalized ingestion. Live biometric override — `applySensorOverrides()` replaces simulated telemetry (HR, EEG α/β/θ bands, pupil diameter, gaze fixation, blink rate, GSR, SpO₂, skin temperature) with real sensor data. Quick-register preset devices (Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4). Sensor mode toggle on Home page, animated LIVE SENSOR badge + dedicated biometric rows on Dashboard. WebSocket sensor status broadcast. |
+| **6** | **Containerization & Orchestration** | ✅ Done | **Docker** — Multi-stage Dockerfiles for backend (JDK 17 → JRE 17), frontend (Node 20 → Nginx 1.27), and ML service (Python 3.11 with native build → slim runtime). Docker Compose for single-command full-stack startup with PostgreSQL, health checks, and dependency ordering. **Kubernetes** — Raw manifests (`k8s/`) for all services plus namespace, ConfigMap, Secret, PVC, and Ingress with WebSocket support. Helm chart (`helm/aipclm/`) with parameterized `values.yaml` for production deployment. **HPA** — Horizontal Pod Autoscaler for ML inference (2–8 pods, CPU 70% / memory 80% target). Nginx reverse-proxy with API/WebSocket passthrough, gzip, and SPA fallback. Non-root containers with resource limits. |
 
 ### Upcoming Phases
 
 | Phase | Name | Status | Description |
 |:-----:|------|:------:|-------------|
 
-| **6** | **Containerization & Orchestration** | 📋 Planned | **Docker** — Multi-stage Dockerfiles for backend, frontend, and ML service. Docker Compose for single-command local dev startup. **Kubernetes** — Helm charts for production deployment with auto-scaling, health probes, ConfigMaps, and Secrets. Horizontal Pod Autoscaler for ML inference under load. |
 | **7** | **CI/CD & Observability** | 📋 Planned | GitHub Actions pipeline (build → test → Docker push → deploy). Prometheus + Grafana monitoring. OpenTelemetry + Jaeger distributed tracing across Spring Boot ↔ FastAPI boundaries. |
 | **8** | **Dynamic Weather & ADS-B** | 📋 Planned | Real-time METAR/TAF weather API integration. ADS-B live feed ingestion for shadow-monitoring actual flights in research mode. |
 

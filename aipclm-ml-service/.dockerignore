@@ -1,0 +1,6 @@
+__pycache__/
+training/
+.git/
+.gitignore
+*.md
+*.pyc

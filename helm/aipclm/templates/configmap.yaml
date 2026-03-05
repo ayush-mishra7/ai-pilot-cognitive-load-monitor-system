@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aipclm-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: aipclm
+data:
+  POSTGRES_DB: {{ .Values.postgres.credentials.database }}
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ .Values.postgres.credentials.database }}
+  ML_SERVICE_URL: http://ml-service:8001
