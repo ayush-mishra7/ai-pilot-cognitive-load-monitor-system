@@ -644,6 +644,22 @@ helm install aipclm ./helm/aipclm \
 
 The Helm chart includes a **Horizontal Pod Autoscaler** for the ML service (2–8 replicas, CPU 70% target).
 
+### 📊 Observability Stack (Prometheus + Grafana + Jaeger)
+
+Launch the full stack with monitoring, dashboards, and distributed tracing:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+```
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3000 | admin / admin |
+| Jaeger UI | http://localhost:16686 | — |
+
+> Grafana auto-provisions the **AI-PCLM** dashboard with 10 panels: pipeline throughput, latency P50/P95/P99, ML inference timing, fallback rate, HTTP status breakdown, JVM heap, and HikariCP connection pool.
+
 ---
 
 ## 📡 API Endpoints
@@ -794,13 +810,13 @@ Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
 | **4** | **Multi-Pilot & CRM Simulation** | ✅ Done | Captain + First Officer dual-crew cockpit with shared cockpit state and PF/PM role differentiation. 7-metric CRM assessment engine (communication, workload distribution, authority gradient, situational awareness, fatigue symmetry, cross-crew stress contagion, CRM effectiveness). Cross-crew fatigue propagation (stress contagion 0.15, fatigue convergence 0.10). Dual-crew dashboard with side-by-side biometrics, dual cognitive load gauges, and real-time CRM HUD. CRM analytics sparklines on Analytics page. CrewAssignment + CrmAssessment entities, crew-aware WebSocket broadcast. |
 | **5** | **Wearable & Sensor Integration** | ✅ Done | 6-type sensor device registry (HRM, EEG, Eye Tracker, GSR, Pulse Oximeter, Skin Temp) with auto-calibration and connection lifecycle. SensorDevice + SensorReading entities with normalized ingestion. Live biometric override — `applySensorOverrides()` replaces simulated telemetry (HR, EEG α/β/θ bands, pupil diameter, gaze fixation, blink rate, GSR, SpO₂, skin temperature) with real sensor data. Quick-register preset devices (Garmin HRM-Pro+, Muse 2, Tobii Pro Nano, Shimmer3 GSR+, Masimo MightySat Rx, Empatica E4). Sensor mode toggle on Home page, animated LIVE SENSOR badge + dedicated biometric rows on Dashboard. WebSocket sensor status broadcast. |
 | **6** | **Containerization & Orchestration** | ✅ Done | **Docker** — Multi-stage Dockerfiles for backend (JDK 17 → JRE 17), frontend (Node 20 → Nginx 1.27), and ML service (Python 3.11 with native build → slim runtime). Docker Compose for single-command full-stack startup with PostgreSQL, health checks, and dependency ordering. **Kubernetes** — Raw manifests (`k8s/`) for all services plus namespace, ConfigMap, Secret, PVC, and Ingress with WebSocket support. Helm chart (`helm/aipclm/`) with parameterized `values.yaml` for production deployment. **HPA** — Horizontal Pod Autoscaler for ML inference (2–8 pods, CPU 70% / memory 80% target). Nginx reverse-proxy with API/WebSocket passthrough, gzip, and SPA fallback. Non-root containers with resource limits. |
+| **7** | **CI/CD & Observability** | ✅ Done | **CI/CD** — GitHub Actions 4-job pipeline: test-backend (Maven + PostgreSQL service), test-ml (Ruff lint + import validation), test-frontend (ESLint + Vite build), docker-build (multi-arch GHCR push with matrix strategy, GHA cache). **Monitoring** — Spring Boot Actuator with Micrometer Prometheus registry; custom `aipclm.pipeline.steps`, `aipclm.pipeline.failures`, `aipclm.pipeline.step.duration`, `aipclm.ml.inference.duration`, `aipclm.ml.inference.fallbacks` metrics. ML Service instrumented with `prometheus-fastapi-instrumentator`. Prometheus scrape config for both services. Grafana 11 with auto-provisioned datasources and 10-panel dashboard (pipeline throughput, latency percentiles, ML fallback rate, HTTP status breakdown, JVM heap, HikariCP pool). **Distributed Tracing** — OpenTelemetry (Micrometer bridge on backend, `opentelemetry-instrumentation-fastapi` on ML service) exporting to Jaeger all-in-one via OTLP HTTP. Trace ID + span ID injected into Spring Boot log pattern. Observability stack via `docker-compose.observability.yml` overlay. |
 
 ### Upcoming Phases
 
 | Phase | Name | Status | Description |
 |:-----:|------|:------:|-------------|
 
-| **7** | **CI/CD & Observability** | 📋 Planned | GitHub Actions pipeline (build → test → Docker push → deploy). Prometheus + Grafana monitoring. OpenTelemetry + Jaeger distributed tracing across Spring Boot ↔ FastAPI boundaries. |
 | **8** | **Dynamic Weather & ADS-B** | 📋 Planned | Real-time METAR/TAF weather API integration. ADS-B live feed ingestion for shadow-monitoring actual flights in research mode. |
 
 ### Infrastructure Goals

@@ -1,0 +1,204 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Pipeline Steps / min",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(aipclm_pipeline_steps_total[1m]) * 60",
+          "legendFormat": "steps/min",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "Pipeline Failures / min",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(aipclm_pipeline_failures_total[1m]) * 60",
+          "legendFormat": "failures/min",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "red" } }
+      }
+    },
+    {
+      "title": "Pipeline Step Latency (P50 / P95 / P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(aipclm_pipeline_step_duration_seconds_bucket[5m]))",
+          "legendFormat": "P50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(aipclm_pipeline_step_duration_seconds_bucket[5m]))",
+          "legendFormat": "P95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(aipclm_pipeline_step_duration_seconds_bucket[5m]))",
+          "legendFormat": "P99",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "ML Inference Latency (P50 / P95 / P99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(aipclm_ml_inference_duration_seconds_bucket[5m]))",
+          "legendFormat": "P50",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(aipclm_ml_inference_duration_seconds_bucket[5m]))",
+          "legendFormat": "P95",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(aipclm_ml_inference_duration_seconds_bucket[5m]))",
+          "legendFormat": "P99",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "ML Fallback Rate / min",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(aipclm_ml_inference_fallbacks_total[5m]) * 60",
+          "legendFormat": "fallbacks/min",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [{ "value": 0, "color": "green" }, { "value": 1, "color": "red" }] } }
+      }
+    },
+    {
+      "title": "HTTP Request Rate by Status (Backend)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(http_server_requests_seconds_count{application=\"aipclm-backend\"}[5m]))",
+          "legendFormat": "{{status}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "HTTP Request Latency P95 (Backend)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"aipclm-backend\"}[5m])))",
+          "legendFormat": "{{uri}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "ML Service Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(aipclm_ml_http_requests_total[5m]))",
+          "legendFormat": "req/s",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "JVM Heap Memory (Backend)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{application=\"aipclm-backend\", area=\"heap\"}",
+          "legendFormat": "{{id}} (used)",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{application=\"aipclm-backend\", area=\"heap\"}",
+          "legendFormat": "{{id}} (max)",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "title": "DB Connection Pool (HikariCP)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{application=\"aipclm-backend\"}",
+          "legendFormat": "active",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "hikaricp_connections_idle{application=\"aipclm-backend\"}",
+          "legendFormat": "idle",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "hikaricp_connections_pending{application=\"aipclm-backend\"}",
+          "legendFormat": "pending",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["aipclm", "cognitive-load", "ml"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "AI-PCLM — Cognitive Load Monitor",
+  "uid": "aipclm-overview",
+  "version": 1
+}

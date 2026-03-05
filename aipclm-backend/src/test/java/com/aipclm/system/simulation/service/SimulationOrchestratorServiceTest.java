@@ -18,12 +18,14 @@ import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.crm.service.CrmService;
 import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -50,7 +52,7 @@ class SimulationOrchestratorServiceTest {
     @Mock private FlightSessionRepository flightSessionRepository;
     @Mock private CrmService crmService;
 
-    @InjectMocks private SimulationOrchestratorService orchestrator;
+    private SimulationOrchestratorService orchestrator;
 
     private Pilot pilot;
     private FlightSession session;
@@ -60,6 +62,15 @@ class SimulationOrchestratorServiceTest {
 
     @BeforeEach
     void setUp() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        orchestrator = new SimulationOrchestratorService(
+                simulationEngineService, cognitiveLoadService, riskEngineService,
+                recommendationEngineService, telemetryFrameRepository,
+                cognitiveStateRepository, riskAssessmentRepository,
+                flightSessionRepository, crmService,
+                Counter.builder("test.steps").register(registry),
+                Counter.builder("test.failures").register(registry),
+                Timer.builder("test.timer").register(registry));
         pilot = TestFixtures.pilotNovice();
         session = TestFixtures.runningSession(pilot);
         frame = TestFixtures.cruiseFrame(session, 1);

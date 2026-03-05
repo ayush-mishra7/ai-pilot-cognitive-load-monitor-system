@@ -1,0 +1,32 @@
+# ──────────────────────────────────────────────────────
+#  Prometheus scrape configuration for AI-PCLM
+# ──────────────────────────────────────────────────────
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # ── Spring Boot Backend (Actuator + Micrometer) ──
+  - job_name: aipclm-backend
+    metrics_path: /actuator/prometheus
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["backend:8080"]
+        labels:
+          service: backend
+          stack: java
+
+  # ── ML Service (FastAPI + prometheus-fastapi-instrumentator) ──
+  - job_name: aipclm-ml-service
+    metrics_path: /metrics
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["ml-service:8001"]
+        labels:
+          service: ml-service
+          stack: python
+
+  # ── Prometheus self-monitoring ──
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

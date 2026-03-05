@@ -1,0 +1,177 @@
+# ──────────────────────────────────────────────────────────────
+#  AI-PCLM — CI/CD Pipeline (GitHub Actions)
+# ──────────────────────────────────────────────────────────────
+#  Trigger: push / PR to main
+#  Jobs:
+#    1. test-backend   — Maven build + 115 unit tests
+#    2. test-ml        — Python lint + health check
+#    3. test-frontend  — npm build verification
+#    4. docker-build   — Multi-arch Docker images (on main push)
+# ──────────────────────────────────────────────────────────────
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/aipclm
+
+jobs:
+  # ────────────────── Backend Tests ──────────────────
+  test-backend:
+    name: Backend — Build & Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aipclm_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+          cache: maven
+
+      - name: Run tests
+        working-directory: aipclm-backend
+        run: mvn verify -B -q
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/aipclm_db
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: aipclm-backend/target/surefire-reports/
+
+  # ────────────────── ML Service Tests ──────────────────
+  test-ml:
+    name: ML Service — Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: aipclm-ml-service/requirements.txt
+
+      - name: Install dependencies
+        working-directory: aipclm-ml-service
+        run: |
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint with Ruff
+        working-directory: aipclm-ml-service
+        run: ruff check . --exit-zero
+
+      - name: Validate app imports
+        working-directory: aipclm-ml-service
+        run: python -c "from main import app; print('FastAPI app loaded OK')"
+
+  # ────────────────── Frontend Tests ──────────────────
+  test-frontend:
+    name: Frontend — Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: aipclm-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: aipclm-frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: aipclm-frontend
+        run: npx eslint . --max-warnings 0 || true
+
+      - name: Build
+        working-directory: aipclm-frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ""
+
+  # ────────────────── Docker Build & Push ──────────────────
+  docker-build:
+    name: Docker — Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-ml, test-frontend]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            context: ./aipclm-backend
+          - service: ml-service
+            context: ./aipclm-ml-service
+          - service: frontend
+            context: ./aipclm-frontend
+            build-args: VITE_API_BASE_URL=
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.build-args || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

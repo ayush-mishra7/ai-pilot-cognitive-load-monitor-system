@@ -1,6 +1,8 @@
 package com.aipclm.system.cognitive.service;
 
 import com.aipclm.system.telemetry.model.TelemetryFrame;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,15 +20,21 @@ public class MLInferenceService {
 
     private final WebClient webClient;
     private final Duration mlTimeout;
+    private final Timer mlInferenceTimer;
+    private final Counter mlFallbackCounter;
 
     public MLInferenceService(
             WebClient.Builder webClientBuilder,
             @Value("${ml.service.url:http://localhost:8001}") String mlServiceUrl,
-            @Value("${ml.service.timeout-ms:5000}") long timeoutMs) {
+            @Value("${ml.service.timeout-ms:5000}") long timeoutMs,
+            Timer mlInferenceTimer,
+            Counter mlFallbackCounter) {
         this.webClient = webClientBuilder
                 .baseUrl(mlServiceUrl)
                 .build();
         this.mlTimeout = Duration.ofMillis(timeoutMs);
+        this.mlInferenceTimer = mlInferenceTimer;
+        this.mlFallbackCounter = mlFallbackCounter;
         log.info("[ML] Service configured: url={} timeout={}ms", mlServiceUrl, timeoutMs);
     }
 
@@ -58,6 +66,7 @@ public class MLInferenceService {
         log.info("[ML] Calling prediction API for frame={} phase={} expertLoad={}",
                 frame.getFrameNumber(), frame.getPhaseOfFlight(), expertComputedLoad);
 
+        long startNanos = System.nanoTime();
         try {
             MLPredictionResponse response = webClient.post()
                     .uri("/predict")
@@ -67,8 +76,11 @@ public class MLInferenceService {
                     .timeout(mlTimeout)
                     .block();
 
+            mlInferenceTimer.record(System.nanoTime() - startNanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+
             if (response == null) {
                 log.warn("[ML] Received null response from ML service. Falling back.");
+                mlFallbackCounter.increment();
                 return buildFallback(expertComputedLoad);
             }
 
@@ -84,6 +96,8 @@ public class MLInferenceService {
             return response;
 
         } catch (Exception ex) {
+            mlInferenceTimer.record(System.nanoTime() - startNanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+            mlFallbackCounter.increment();
             log.error("[ML] ML service call failed for frame={}: {}. Using fallback.",
                     frame.getFrameNumber(), ex.getMessage());
             return buildFallback(expertComputedLoad);

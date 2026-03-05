@@ -15,6 +15,8 @@ import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.session.repository.FlightSessionRepository;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
 import com.aipclm.system.telemetry.repository.TelemetryFrameRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,9 @@ public class SimulationOrchestratorService {
         private final RiskAssessmentRepository riskAssessmentRepository;
         private final FlightSessionRepository flightSessionRepository;
         private final CrmService crmService;
+        private final Counter pipelineStepCounter;
+        private final Counter pipelineFailureCounter;
+        private final Timer pipelineStepTimer;
 
         public SimulationOrchestratorService(SimulationEngineService simulationEngineService,
                         CognitiveLoadService cognitiveLoadService,
@@ -44,7 +49,10 @@ public class SimulationOrchestratorService {
                         CognitiveStateRepository cognitiveStateRepository,
                         RiskAssessmentRepository riskAssessmentRepository,
                         FlightSessionRepository flightSessionRepository,
-                        CrmService crmService) {
+                        CrmService crmService,
+                        Counter pipelineStepCounter,
+                        Counter pipelineFailureCounter,
+                        Timer pipelineStepTimer) {
                 this.simulationEngineService = simulationEngineService;
                 this.cognitiveLoadService = cognitiveLoadService;
                 this.riskEngineService = riskEngineService;
@@ -54,6 +62,9 @@ public class SimulationOrchestratorService {
                 this.riskAssessmentRepository = riskAssessmentRepository;
                 this.flightSessionRepository = flightSessionRepository;
                 this.crmService = crmService;
+                this.pipelineStepCounter = pipelineStepCounter;
+                this.pipelineFailureCounter = pipelineFailureCounter;
+                this.pipelineStepTimer = pipelineStepTimer;
         }
 
         /**
@@ -64,6 +75,13 @@ public class SimulationOrchestratorService {
          */
         @Transactional(rollbackFor = Exception.class)
         public SimulationStepResult runSingleSimulationStep(UUID sessionId) {
+                return pipelineStepTimer.record(() -> {
+                        pipelineStepCounter.increment();
+                        return doRunSingleSimulationStep(sessionId);
+                });
+        }
+
+        private SimulationStepResult doRunSingleSimulationStep(UUID sessionId) {
                 log.info("[Orchestrator] ======== STARTING PIPELINE STEP FOR SESSION={} ========", sessionId);
 
                 FlightSession session = flightSessionRepository.findById(sessionId)
@@ -145,6 +163,7 @@ public class SimulationOrchestratorService {
                                         false, null);
 
                 } catch (Exception e) {
+                        pipelineFailureCounter.increment();
                         log.error("[Orchestrator] ======== PIPELINE STEP FAILED: SESSION={} REASON={} ========",
                                         sessionId, e.getMessage());
                         throw e;

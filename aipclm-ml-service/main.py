@@ -87,6 +87,39 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Phase 7: Prometheus Metrics ──
+from prometheus_fastapi_instrumentator import Instrumentator
+
+Instrumentator(
+    should_group_status_codes=True,
+    should_respect_env_var=False,
+    excluded_handlers=["/health", "/metrics"],
+    metric_namespace="aipclm",
+    metric_subsystem="ml",
+).instrument(app).expose(app, include_in_schema=False, should_gzip=True)
+
+# ── Phase 7: OpenTelemetry Distributed Tracing ──
+_otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+if _otel_endpoint:
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.sdk.resources import Resource
+
+        _resource = Resource.create({"service.name": "aipclm-ml-service"})
+        _provider = TracerProvider(resource=_resource)
+        _provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=_otel_endpoint)))
+        trace.set_tracer_provider(_provider)
+        FastAPIInstrumentor.instrument_app(app)
+        logger.info("OpenTelemetry tracing enabled → %s", _otel_endpoint)
+    except Exception as e:
+        logger.warning("OpenTelemetry init failed: %s — tracing disabled", e)
+else:
+    logger.info("OTEL_EXPORTER_OTLP_ENDPOINT not set — tracing disabled")
+
 
 # ── Request / Response Models ──
 

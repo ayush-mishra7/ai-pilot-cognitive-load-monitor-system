@@ -40,6 +40,9 @@ public class SecurityConfig {
                 // WebSocket endpoint — SockJS handshake must be unauthenticated
                 .requestMatchers("/ws/**").permitAll()
 
+                // Actuator endpoints — Prometheus scraping (Phase 7)
+                .requestMatchers("/actuator/**").permitAll()
+
                 // ATC endpoints — require ATC or ADMIN role
                 .requestMatchers("/api/atc/**").hasAnyRole("ATC", "ADMIN")
 

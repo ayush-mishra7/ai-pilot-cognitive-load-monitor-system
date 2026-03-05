@@ -4,6 +4,9 @@ import com.aipclm.system.TestFixtures;
 import com.aipclm.system.pilot.model.Pilot;
 import com.aipclm.system.session.model.FlightSession;
 import com.aipclm.system.telemetry.model.TelemetryFrame;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,7 +54,9 @@ class MLInferenceServiceTest {
             return null;
         });
 
-        service = new MLInferenceService(mockBuilder, "http://localhost:8001", 5000L);
+        service = new MLInferenceService(mockBuilder, "http://localhost:8001", 5000L,
+                Timer.builder("test").register(new SimpleMeterRegistry()),
+                Counter.builder("test").register(new SimpleMeterRegistry()));
     }
 
     @SuppressWarnings("unchecked")

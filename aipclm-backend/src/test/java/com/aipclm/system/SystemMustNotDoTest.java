@@ -304,7 +304,10 @@ class SystemMustNotDoTest {
                     simulationEngineService, cognitiveLoadService, riskEngineService,
                     recommendationEngineService, telemetryFrameRepository,
                     cognitiveStateRepository, riskAssessmentRepository,
-                    flightSessionRepository, crmService);
+                    flightSessionRepository, crmService,
+                    io.micrometer.core.instrument.Counter.builder("test.steps").register(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()),
+                    io.micrometer.core.instrument.Counter.builder("test.failures").register(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()),
+                    io.micrometer.core.instrument.Timer.builder("test.timer").register(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
         }
 
         @Test
