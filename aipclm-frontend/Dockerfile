@@ -1,47 +1,34 @@
-# ──────────────────────────────────────────────
-#  AI-PCLM Frontend — Multi-stage Docker Build
-# ──────────────────────────────────────────────
-#  Stage 1: Node build   (Vite production build)
-#  Stage 2: Nginx serve  (Alpine)
-# ──────────────────────────────────────────────
-
-# ── Stage 1: Build ──
+# Stage 1: Build the React Application
 FROM node:20-alpine AS builder
 
-WORKDIR /build
+WORKDIR /app
 
-# Cache node_modules
-COPY package.json package-lock.json* ./
-RUN npm ci --ignore-scripts || npm install
+# Install dependencies using layer caching
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Copy source and build
+# Copy the source code and build for production
 COPY . .
-
-# Build arg for backend URL (defaults to Docker Compose service name)
-ARG VITE_API_BASE_URL=http://localhost:8080
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-
 RUN npm run build
 
-# ── Stage 2: Serve with Nginx ──
-FROM nginx:1.27-alpine
+# Stage 2: Serve using ultra-light Nginx
+FROM nginx:alpine
 
-LABEL maintainer="Ayush Mishra <ayush-mishra7>"
-LABEL description="AI-PCLM Frontend — React 19 + Vite 7"
+# Copy the build artifacts from the builder to Nginx's public folder
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Remove default config
-RUN rm /etc/nginx/conf.d/default.conf
+# Copy a custom fallback Nginx config to support React Client-Side Routing
+RUN echo $'server { \\n\
+    listen 80; \\n\
+    server_name localhost; \\n\
+    location / { \\n\
+        root   /usr/share/nginx/html; \\n\
+        index  index.html index.htm; \\n\
+        try_files $uri $uri/ /index.html; \\n\
+    } \\n\
+}' > /etc/nginx/conf.d/default.conf
 
-# Custom Nginx config for SPA routing
-COPY nginx.conf /etc/nginx/conf.d/aipclm.conf
-
-# Copy built assets
-COPY --from=builder /build/dist /usr/share/nginx/html
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost:80/ || exit 1
-
+# Expose 80 inside container (Will map to 5173 externally in docker-compose.yml)
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

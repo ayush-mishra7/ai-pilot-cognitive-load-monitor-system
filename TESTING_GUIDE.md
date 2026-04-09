@@ -1,779 +1,268 @@
-# AI-PCLM — Comprehensive Testing Guide
+# AI-PCLM — Quick-Start & Presentation Guide
 
-> Step-by-step manual testing instructions covering **all 6 phases** (0–5) of the AI-Pilot Cognitive Load Monitor System.
-
----
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Phase 0 — Authentication & Authorization](#phase-0--authentication--authorization)
-- [Phase 1 — Scenario Engine & Flight Simulation](#phase-1--scenario-engine--flight-simulation)
-- [Phase 2 — WebSocket Real-Time Streaming](#phase-2--websocket-real-time-streaming)
-- [Phase 3 — Advanced ML Pipeline & SHAP Explainability](#phase-3--advanced-ml-pipeline--shap-explainability)
-- [Phase 4 — Multi-Pilot Crew Resource Management (CRM)](#phase-4--multi-pilot-crew-resource-management-crm)
-- [Phase 5 — Wearable & Sensor Integration](#phase-5--wearable--sensor-integration)
-- [Automated Unit Tests](#automated-unit-tests)
-- [Troubleshooting](#troubleshooting)
+> Everything you need to launch the system and present it confidently.
 
 ---
 
-## Prerequisites
+## What Is This Project? (Introduction Script)
 
-### 1. Start the Database
+AI-PCLM stands for **AI-Powered Pilot Cognitive Load Monitor**. In simple words, it is a system that watches how stressed or overloaded a pilot's brain is during a flight — and warns everyone before things go wrong.
 
-Ensure PostgreSQL is running on `localhost:5432` with a database named `aipclm_db`:
+Airplane crashes are almost never just about the plane breaking. They happen because the pilot's mind gets overloaded — too many alarms, bad weather, engine problems all at once — and they start missing things. This is called **cognitive overload**.
 
-```sql
-CREATE DATABASE aipclm_db;
+Our system solves this by:
+- **Monitoring** the pilot's heart rate, stress, fatigue, reaction time, and eye behavior in real time.
+- **Running an AI model** (Machine Learning) that predicts how mentally loaded the pilot is — on a scale of 0 to 10.
+- **Alerting** the pilot, the co-pilot, and Air Traffic Control the moment the load becomes dangerous.
+- **Recommending** specific actions — like "turn on autopilot" or "hand over controls to the first officer" — to bring the pilot's brain back to a safe state.
+
+It uses a **Java Spring Boot backend**, a **Python ML microservice**, a **React frontend**, and **WebSocket real-time streaming** — all working together like an actual flight operations center.
+
+---
+
+## How to Launch (Step by Step)
+
+> **Important**: Open 3 separate PowerShell / Terminal windows. Start them in this exact order. Wait for each one to finish before moving to the next.
+
+### Step 0 — Make sure PostgreSQL is running
+Your Windows PostgreSQL service must be active in the background on port `5432` with a database called `aipclm_db`.
+
+### Step 1 — Kill any leftover processes (do this every time)
+Open any PowerShell and run:
+```powershell
+# This clears ports 8080, 8001, and 5173 so nothing conflicts
+Get-NetTCPConnection -LocalPort 8080,8001,5173 -State Listen -ErrorAction SilentlyContinue |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 ```
 
-Default credentials: `postgres:postgres`. Update `aipclm-backend/src/main/resources/application.yml` if different.
-
-### 2. Start the ML Service (required for Phase 3 ML tests)
-
-```bash
-cd aipclm-ml-service
-pip install -r requirements.txt
-python main.py
+### Step 2 — ML Service (Terminal 1)
+```powershell
+cd C:\Users\ayush\Downloads\ai-pclm\aipclm-ml-service
+conda activate aipclm
+uvicorn main:app --port 8001
 ```
+✅ **Wait for:** `Application startup complete` and `Uvicorn running on http://127.0.0.1:8001`
 
-Verify: `http://localhost:8001/health` → `{"status":"healthy"}`
-
-> **Note:** The system works without the ML service — it falls back to expert-only mode with `confidence=0.5`.
-
-### 3. Start the Backend
-
-```bash
-cd aipclm-backend
-mvn spring-boot:run
+### Step 3 — Java Backend (Terminal 2)
+```powershell
+cd C:\Users\ayush\Downloads\ai-pclm\aipclm-backend
+mvn clean spring-boot:run
 ```
+> **Always use `mvn clean spring-boot:run`** (with `clean`). Without `clean`, Maven may skip recompiling changed code and run old classes.
 
-Verify:
-```bash
-curl http://localhost:8080/api/auth/health
-# → {"status":"UP"}
+✅ **Wait for:** `Started AipclmBackendApplication` — this takes ~30–60 seconds.
+
+### Step 4 — React Frontend (Terminal 3)
+```powershell
+cd C:\Users\ayush\Downloads\ai-pclm\aipclm-frontend
+npm run dev
 ```
+✅ **Wait for:** `VITE ready` and `Local: http://localhost:5173/`
 
-### 4. Start the Frontend
+### Step 5 — Open Browser
+Go to **http://localhost:5173**. The system is live.
 
-```bash
-cd aipclm-frontend
-npm install
-npx vite --port 5174
-```
-
-Open `http://localhost:5174` in a browser.
-
-### 5. Seed Accounts
-
-The backend auto-seeds two demo accounts on startup:
+### Login Accounts (Pre-Created)
 
 | Role | Email | Password |
 |------|-------|----------|
-| **PILOT** | `pilot@aipclm.com` | `pilot123` |
-| **ATC** | `tower@aipclm.com` | `tower123` |
+| Pilot | `pilot@aipclm.com` | `pilot123` |
+| ATC (Air Traffic Control) | `tower@aipclm.com` | `tower123` |
 
 ---
 
-## Phase 0 — Authentication & Authorization
+## Presentation Demo Flow
 
-### Test 0.1: Health Check
-
-```bash
-curl http://localhost:8080/api/auth/health
-```
-
-**Expected:** `{"status":"UP"}`
+Follow this exact sequence during your demo. Each section tells you what to do and what to say.
 
 ---
 
-### Test 0.2: Register a New Pilot
+### Screen 1 — Landing Page
 
-```bash
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "testpilot@test.com",
-    "password": "test123",
-    "fullName": "Test Pilot",
-    "role": "PILOT",
-    "pilotProfileType": "EXPERIENCED"
-  }'
-```
+**What to do:** Open `localhost:5173`. You'll see the cinematic landing page.
 
-**Expected:** `201 Created` with JWT token in `token` field.
+**What to say:**
+- "This is the AI Pilot Cognitive Load Monitor — a system that monitors a pilot's mental state in real time during a flight."
+- "It uses Machine Learning, real-time WebSocket streaming, and wearable sensor data to predict when a pilot is getting overloaded."
+- "Let me show you how it works."
+
+**Action:** Click **"Access Cockpit"** to go to the login page.
 
 ---
 
-### Test 0.3: Register a New ATC
+### Screen 2 — Login (Pilot)
 
-```bash
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "testatc@test.com",
-    "password": "test123",
-    "fullName": "Test ATC",
-    "role": "ATC"
-  }'
-```
+**What to do:** Log in with `pilot@aipclm.com` / `pilot123`.
 
-**Expected:** `201 Created` with JWT token.
+**What to say:**
+- "The system supports two types of users — Pilots and Air Traffic Controllers. Both have separate dashboards."
+- "Right now I'm logging in as a pilot."
 
 ---
 
-### Test 0.4: Login with Seeded Pilot Account
+### Screen 3 — Home Page (Mission Control)
 
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "pilot@aipclm.com", "password": "pilot123"}'
-```
+**What to do:** You'll see the session management page.
 
-**Expected:** `200 OK` with `token` (JWT). Save this token as `$TOKEN` for subsequent requests.
+**What to say:**
+- "This is the Pilot's Mission Control. From here, pilots can start flight simulations and monitor their cognitive state."
+- "The system has customizable scenarios — you can set the weather, emergency type, terrain, and visibility."
 
----
+**Action:** Open the **SCENARIO** panel and click the **"EXTREME"** preset.
 
-### Test 0.5: Get Current User Info
+**What to say:**
+- "I'm setting up the hardest possible flight — thunderstorm weather, engine failure emergency, mountainous terrain, and zero visibility."
+- "This will stress the simulated pilot's brain to the maximum so we can see how the AI reacts."
 
-```bash
-curl http://localhost:8080/api/auth/me \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Expected:** User object with `email`, `role`, `fullName`, `callSign`.
+**Action:** Click **"START NEW SESSION"**. A session card appears.
 
 ---
 
-### Test 0.6: Unauthorized Access (No Token)
+### Screen 4 — Live Cockpit Dashboard
 
-```bash
-curl http://localhost:8080/api/session/list
-```
+**What to do:** Click the session card to open it.
 
-**Expected:** `403 Forbidden`
-
----
-
-### Test 0.7: Frontend Login Flow
-
-1. Open `http://localhost:5174`
-2. Click **"Access Cockpit"** on landing page
-3. Login with `pilot@aipclm.com` / `pilot123`
-4. **Expected:** Redirected to Home page with session management UI
+**What to say:**
+- "This is the live cockpit. Everything you see is updating in real time over WebSockets — there's no page refreshing."
+- **Left screen:** "The left panel shows telemetry — altitude, airspeed, heart rate, fatigue, stress level, turbulence. These numbers change every 2 seconds."
+- **Center screen:** "The center shows the Cognitive Load gauge. This is the main number — it tells us how loaded the pilot's brain is, from 0 to 10. The AI model and an expert formula are both calculating this, and the system blends them together."
+- **Right screen:** "The right panel shows the Risk Level — LOW, MEDIUM, HIGH, or CRITICAL — and below it are AI-generated Recommendations. When the load goes up, the system automatically tells the pilot what to do — like 'Engage Autopilot' or 'Reduce Task Switching'."
+- "Notice how as the extreme scenario progresses, the cognitive load climbs, the risk level turns red, and more warnings start appearing. This is the system detecting danger in real time."
 
 ---
 
-### Test 0.8: ATC Role Routing
+### Screen 5 — Analytics Page
 
-1. Login with `tower@aipclm.com` / `tower123`
-2. **Expected:** Redirected to ATC Radar page (not pilot Home page)
+**What to do:** Go back to Home and click the **analytics icon** (chart icon) on the session card.
 
----
-
-## Phase 1 — Scenario Engine & Flight Simulation
-
-### Test 1.1: Create a Session with Default Scenario (via UI)
-
-1. Login as pilot
-2. On Home page, click **"START NEW SESSION"** (no toggles enabled)
-3. **Expected:** A new session appears in the list with status `RUNNING`, scenario defaults (CLEAR weather, no emergency, FLAT terrain)
+**What to say:**
+- "This is the Analytics Dashboard. It shows live-updating charts of the pilot's cognitive journey."
+- "You can see the cognitive load trend over time, risk distribution, ML confidence score, and a Swiss Cheese breakdown."
+- "The Swiss Cheese Model is from aviation safety theory — accidents happen when multiple safety barriers have holes that line up. Our system tracks each barrier."
+- "If the ML service is running, you'll also see SHAP explainability bars — these tell you exactly *why* the AI thinks the load is high. For example, it might say 'heart rate contributed +3.2 to the load prediction'."
 
 ---
 
-### Test 1.2: Create a Session with Custom Scenario
+### Screen 6 — ATC Radar (Air Traffic Control)
 
-1. Click the **"SCENARIO"** accordion on the Home page
-2. Set:
-   - Weather: **THUNDERSTORM**
-   - Emergency: **ENGINE_FAILURE**
-   - Terrain: **MOUNTAINOUS**
-   - Visibility: **LOW**
-3. Click **"START NEW SESSION"**
-4. **Expected:** Session starts with the custom scenario; dashboard shows increased turbulence and stress
+**What to do:** Open a **new browser tab** (or incognito window). Go to `localhost:5173`. Log in as `tower@aipclm.com` / `tower123`.
 
----
+**What to say:**
+- "Now I'm logging in as Air Traffic Control — the person on the ground who watches all the flights."
+- "This is the ATC Radar. Every active flight appears as a blip on the radar circle."
+- "The blips are color-coded by risk level — green for LOW, yellow for MEDIUM, orange for HIGH, and red for CRITICAL."
+- "Watch the flight strip panel on the right — when a flight goes into HIGH or CRITICAL risk, its strip starts flashing red. This means urgent attention is needed."
 
-### Test 1.3: Quick Presets
-
-1. In the scenario configurator, click **"EXTREME"** preset button
-2. **Expected:** All 9 axes auto-fill with extreme values (THUNDERSTORM, ENGINE_FAILURE, MOUNTAINOUS, ZERO visibility, etc.)
-3. Start the session
-4. **Expected:** Cognitive load rises quickly, risk escalates to HIGH or CRITICAL
+**What to point out:**
+- The red flashing border on emergency flight strips
+- The **"📡 CONTACT FLIGHT"** button that appears on dangerous flights
 
 ---
 
-### Test 1.4: Verify Scenario via API
+### Screen 7 — Real-Time ATC ↔ Flight Chat
 
-```bash
-# Get scenario for a session
-curl http://localhost:8080/api/scenario/{sessionId} \
-  -H "Authorization: Bearer $TOKEN"
-```
+**What to do:** Click the **"📡 CONTACT FLIGHT"** button on a HIGH/CRITICAL flight strip.
 
-**Expected:** JSON with `weatherCondition`, `emergencyType`, `terrainType`, etc.
+**What to say:**
+- "The system includes real-time text communication between ATC and the flight."
+- "Notice the chat uses operational callsigns — ATC-TOWER and FLT-[flight ID] — not personal names. This matches real aviation protocol."
 
----
+**Action:** Type a message like "Reduce speed, descend to FL250" and send it.
 
-### Test 1.5: Mid-Flight Scenario Update
+**What to do next:** Switch to the **Pilot tab** and click the **"📡 ATC COMMS"** button on the cockpit dashboard (bottom right).
 
-```bash
-curl -X PUT http://localhost:8080/api/scenario/{sessionId} \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"weatherCondition": "ICE", "emergencyType": "FIRE"}'
-```
-
-**Expected:** `200 OK`. The dashboard should reflect changed conditions on subsequent frames.
+**What to say:**
+- "The pilot sees the same message on their cockpit screen. They can reply back. Every message has a timestamp — like a real flight log."
+- "This communication happens over WebSockets — zero delay, no page refresh."
 
 ---
 
-### Test 1.6: Phase Transitions
+### Screen 8 — Crew Mode (Two Pilots)
 
-1. Start a session and watch the dashboard
-2. **Expected Phase Sequence:** The `phaseOfFlight` transitions through:
-   - `TAKEOFF` (frames 1–50)
-   - `CLIMB` (51–150)
-   - `CRUISE` (151–600)
-   - `DESCENT` (601–900)
-   - `APPROACH` (901–1200)
-   - `LANDING` (1201–1350)
-3. At frame 1350, the session auto-completes with status `COMPLETED`
+**What to do:** Go back to Pilot Home. Toggle **"CREW MODE"** on. Select Captain = EXPERIENCED, First Officer = NOVICE. Start a new session. Open the dashboard.
+
+**What to say:**
+- "The system also supports dual-pilot Crew Resource Management."
+- "You can see two separate cognitive load gauges — one for the Captain and one for the First Officer."
+- "At the bottom, there are CRM scores — Communication, Workload Balance, Situational Awareness, and overall CRM Effectiveness."
+- "If one pilot is fatigued, the system detects 'fatigue contagion' — the other pilot's fatigue starts rising too. This is based on real human-factors research."
 
 ---
 
-## Phase 2 — WebSocket Real-Time Streaming
+### Screen 9 — Sensor Mode (Wearables)
 
-### Test 2.1: Live Dashboard via WebSocket
+**What to do:** Go back to Home. Toggle off Crew Mode. Toggle **"SENSOR MODE"** on. Start a new session. Open the dashboard.
 
-1. Start a session from the Home page
-2. Click on the session row to open the Dashboard
-3. **Expected:** Dashboard updates every ~2 seconds with:
-   - **Left Panel:** Telemetry gauges (altitude, airspeed, heading, heart rate, etc.)
-   - **Right Panel Top:** Cognitive load radial gauge (0–100)
-   - **Right Panel Bottom:** Risk level badge + AI recommendations
+**What to say:**
+- "In Sensor Mode, the system connects to wearable devices to get real biometric data."
+- "You'll see the LIVE SENSOR badge pulsing at the top, and extra biometric readings below — GSR (sweat response), SpO₂ (blood oxygen), Skin Temperature, EEG brain waves, Pupil Diameter, and Gaze Fixation."
+- "The backend has a full sensor API that supports real devices — **Garmin HRM-Pro** for heart rate, **Muse 2** for EEG brainwaves, **Tobii Pro** for eye tracking."
 
----
-
-### Test 2.2: Session List Auto-Refresh
-
-1. Open the Home page
-2. Start a session from another browser tab (or via API)
-3. **Expected:** The session list on the first tab updates automatically (WebSocket-driven)
+**What to say about why sensors aren't physically connected:**
+- "For this demo, the biometrics are being generated by human-factor algorithms that simulate realistic physiological responses. But the exact same backend API that processes this data is fully ready to accept real Bluetooth sensor streams. Connecting physical devices requires dedicated local Bluetooth nodes on each workstation, which is our next deployment target."
 
 ---
 
-### Test 2.3: Multiple Sessions Streaming
+## Answering Follow-Up Questions
 
-1. Start 2–3 sessions simultaneously
-2. Open Dashboard for each in separate tabs
-3. **Expected:** Each dashboard streams independently with its own telemetry/cognitive/risk data
+### "How does this prevent aviation accidents?"
 
----
+"Airplane crashes are rarely caused by one mechanical failure. They happen because of compounding human errors — this is called the Swiss Cheese Model. When a pilot gets mentally overloaded, they lose situational awareness and start missing obvious warnings. Our system catches this *before* the pilot makes a mistake by monitoring their cognitive load in real time and alerting everyone — the pilot, the co-pilot, and ATC — the moment it gets dangerous."
 
-### Test 2.4: Analytics Page Live Streaming
+### "What happens when a CRITICAL warning appears?"
 
-1. Start a session, then navigate to Analytics (click analytics icon in session row)
-2. **Expected:** Sparkline charts update in real time:
-   - Cognitive load trend
-   - Risk distribution bar
-   - ML performance metrics (if ML service running)
-   - Swiss Cheese barrier sparkline
+"Three things happen instantly:
+1. The pilot's cockpit turns red-state — the dashboard visually forces them to recognize they're overloaded.
+2. ATC gets an immediate alert — the flight strip on their radar starts flashing red, and they can contact the pilot directly.
+3. The AI recommends specific actions — like 'Engage Autopilot', 'Transfer Controls to First Officer', or 'Reduce Task Switching' — to mechanically reduce the pilot's workload until their heart rate and stress biologically stabilize."
 
----
+### "Why can't you use eye tracking and Garmin watches right now?"
 
-### Test 2.5: ATC Radar (WebSocket)
+"The system's backend already has a complete sensor ingestion API — device registration, Bluetooth connection management, and real-time data normalization. What we can't do in a classroom demo is pair physical Bluetooth devices like a Garmin watch or a Tobii eye tracker, because that requires dedicated Bluetooth adapters and device-specific pairing protocols on each machine. The simulated data uses the same physiological models and goes through the exact same pipeline."
 
-1. Login as ATC (`tower@aipclm.com`)
-2. Start a session from another tab (as pilot)
-3. **Expected:** ATC Radar shows animated blip for the active session, color-coded by risk level
-4. Click the blip → **Expected:** ATC flight detail page with telemetry/cognitive/risk data
+### "How does the AI model work?"
 
----
+"We use a Gradient Boosting machine learning model trained on 12 biometric and environmental features — heart rate, stress, fatigue, reaction time, turbulence, weather severity, and more. It predicts cognitive load on a 0-to-10 scale. The model achieves R² = 0.98 accuracy. We also use SHAP values to explain every prediction — so we can tell you exactly which factor contributed how much."
 
-### Test 2.6: Verify REST Fallback (Initial Hydration)
+### "Is this a black box AI?"
 
-When you first open a dashboard URL directly, before WebSocket connects, the page loads initial data via REST:
+"No. We use SHAP — Shapley Additive Explanations — which comes from game theory. It mathematically decomposes every prediction into individual feature contributions. So if the AI says the load is 8.5, we can show you that heart rate contributed +2.1, turbulence contributed +1.8, and fatigue contributed +3.2. Everything is transparent and explainable."
 
-```bash
-curl http://localhost:8080/api/session/{id}/latest-state \
-  -H "Authorization: Bearer $TOKEN"
-```
+### "How is this different from just putting a heart rate monitor on the pilot?"
 
-**Expected:** Returns latest telemetry + cognitive + risk + recommendations JSON.
-
----
-
-## Phase 3 — Advanced ML Pipeline & SHAP Explainability
-
-> **Prerequisite:** ML service running on port 8001.
-
-### Test 3.1: ML Service Health
-
-```bash
-curl http://localhost:8001/health
-```
-
-**Expected:** `{"status":"healthy","model_loaded":true}`
-
----
-
-### Test 3.2: Model Info
-
-```bash
-curl http://localhost:8001/model/info
-```
-
-**Expected:** JSON with `version: "1.0.0"`, `algorithm: "GradientBoosting"`, `r2_score`, `mae`, `feature_names` array.
-
----
-
-### Test 3.3: Direct ML Prediction
-
-```bash
-curl -X POST http://localhost:8001/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "heart_rate": 95,
-    "stress_index": 55,
-    "fatigue_index": 40,
-    "reaction_time_ms": 300,
-    "control_input_frequency": 4.5,
-    "blink_rate": 18,
-    "instrument_scan_variance": 0.3,
-    "error_count": 1,
-    "turbulence_level": 0.4,
-    "autopilot_engaged": 0,
-    "weather_severity": 3,
-    "task_switch_rate": 2.5
-  }'
-```
-
-**Expected:** `{"predicted_load": <number 0-100>, "confidence": <number 0-1>}`
-
----
-
-### Test 3.4: SHAP Explainability
-
-```bash
-curl -X POST http://localhost:8001/explain \
-  -H "Content-Type: application/json" \
-  -d '{"heart_rate": 95, "stress_index": 55, "fatigue_index": 40, "reaction_time_ms": 300, "control_input_frequency": 4.5, "blink_rate": 18, "instrument_scan_variance": 0.3, "error_count": 1, "turbulence_level": 0.4, "autopilot_engaged": 0, "weather_severity": 3, "task_switch_rate": 2.5}'
-```
-
-**Expected:** JSON with `feature_contributions` array (12 entries: `{feature, contribution}`) + `base_value`, `predicted_value`.
-
----
-
-### Test 3.5: Confidence-Weighted Fusion (Dashboard)
-
-1. Start a session with the ML service **running**
-2. Open Analytics page
-3. **Expected:** ML confidence badge shows ~0.85+. The fused load blends expert and ML:
-   - `fusedLoad = confidence × mlLoad + (1 − confidence) × expertLoad`
-
----
-
-### Test 3.6: ML Fallback (No ML Service)
-
-1. Stop the ML service (`Ctrl+C` on the Python process)
-2. Start a new session
-3. **Expected:** The pipeline continues using expert-only mode with `confidence=0.5`. No errors in backend logs — just a warning about ML service unavailability.
-
----
-
-### Test 3.7: SHAP on Analytics Page
-
-1. With ML service running, open Analytics for an active session
-2. **Expected:** SHAP driver bars show feature contributions (e.g., `heart_rate: +5.2`, `fatigue_index: -3.1`)
-
----
-
-### Test 3.8: Explainability API
-
-```bash
-curl http://localhost:8080/api/session/{id}/explainability \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Expected:** JSON with `featureContributions` map and `baseValue`.
-
----
-
-## Phase 4 — Multi-Pilot Crew Resource Management (CRM)
-
-### Test 4.1: Start Crew-Mode Session (via UI)
-
-1. Login as pilot, go to Home page
-2. Toggle **"CREW MODE"** on
-3. Select Captain profile (e.g., EXPERIENCED) and FO profile (e.g., NOVICE)
-4. Click **"START NEW SESSION"**
-5. **Expected:** Session appears with **CREW** badge (orange) in the session list
-
----
-
-### Test 4.2: Start Crew-Mode Session (via API)
-
-```bash
-curl -X POST "http://localhost:8080/api/test/simulation/start-crew?captainProfile=EXPERIENCED&foProfile=NOVICE" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Expected:** `200 OK` with session details. `crewMode: true`.
-
----
-
-### Test 4.3: Dual Cockpit Dashboard
-
-1. Open the Dashboard for a crew-mode session
-2. **Expected:**
-   - **Left Panel:** Captain biometrics (PF — Pilot Flying)
-   - **Right Panel:** First Officer biometrics (PM — Pilot Monitoring)
-   - Dual cognitive load gauges at the top
-   - CRM HUD overlay between the panels showing:
-     - Communication score
-     - Workload distribution
-     - CRM effectiveness
-     - Fatigue symmetry
-
----
-
-### Test 4.4: CRM History API
-
-```bash
-curl http://localhost:8080/api/session/{id}/crm-history \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Expected:** Array of CRM assessment objects with fields: `communicationScore`, `workloadDistribution`, `authorityGradient`, `situationalAwareness`, `fatigueSymmetry`, `stressContagion`, `crmEffectiveness`.
-
----
-
-### Test 4.5: Cross-Crew Fatigue Propagation
-
-1. Start a crew session with **Captain=EXPERIENCED, FO=FATIGUE_PRONE**
-2. Watch the dashboard over 20+ frames
-3. **Expected:** The FO's higher fatigue gradually "infects" the Captain's fatigue index (stress contagion factor 0.15). Both crew members' fatigue values should slowly converge (convergence factor 0.10).
-
----
-
-### Test 4.6: CRM Analytics
-
-1. Open Analytics page for a crew-mode session
-2. **Expected:** CRM sparklines appear:
-   - CRM effectiveness trend
-   - Communication score trend
-   - Fatigue symmetry trend
-   - Captain vs FO load overlay
-
----
-
-### Test 4.7: ATC View of Crew Sessions
-
-1. Login as ATC
-2. Start a crew session from a pilot tab
-3. **Expected:** ATC radar shows the crew session. Clicking it shows detail with both crew members' data.
-
----
-
-## Phase 5 — Wearable & Sensor Integration
-
-### Test 5.1: Start Sensor-Mode Session (via UI)
-
-1. Login as pilot, go to Home page
-2. Toggle **"SENSOR MODE"** on (note: sensor mode and crew mode are mutually exclusive)
-3. Click **"START NEW SESSION"**
-4. **Expected:**
-   - Session appears with **SENSOR** badge (purple) in the session list
-   - Console log (F12) shows 6 devices registered and connected automatically
-
----
-
-### Test 5.2: Start Sensor-Mode Session (via API)
-
-```bash
-curl -X POST "http://localhost:8080/api/test/simulation/start-sensor?profile=EXPERIENCED" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Expected:** `200 OK` with `sensorMode: true`.
-
----
-
-### Test 5.3: Quick-Register All Preset Devices
-
-```bash
-curl -X POST http://localhost:8080/api/sensor/quick-register
-```
-
-**Expected:** `200 OK` with array of 6 registered devices:
-- Garmin HRM-Pro+ (HEART_RATE_MONITOR)
-- Muse 2 (EEG_HEADBAND)
-- Tobii Pro Nano (EYE_TRACKER)
-- Shimmer3 GSR+ (GSR_SENSOR)
-- Masimo MightySat Rx (PULSE_OXIMETER)
-- Empatica E4 (SKIN_TEMPERATURE_SENSOR)
-
----
-
-### Test 5.4: List Sensor Devices
-
-```bash
-curl http://localhost:8080/api/sensor/device/list
-```
-
-**Expected:** Array of all registered devices with `id`, `deviceName`, `sensorType`, `connectionStatus`.
-
----
-
-### Test 5.5: Connect a Device to a Session
-
-```bash
-curl -X PUT http://localhost:8080/api/sensor/device/{deviceId}/connect/{sessionId}
-```
-
-**Expected:** Device status changes to `CONNECTED`. Connection goes through `CALIBRATING` → `CONNECTED` automatically.
-
----
-
-### Test 5.6: Disconnect a Device
-
-```bash
-curl -X PUT http://localhost:8080/api/sensor/device/{deviceId}/disconnect
-```
-
-**Expected:** Device status changes to `DISCONNECTED`.
-
----
-
-### Test 5.7: Ingest a Single Sensor Reading
-
-```bash
-curl -X POST http://localhost:8080/api/sensor/reading \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sensorDeviceId": "{deviceId}",
-    "flightSessionId": "{sessionId}",
-    "frameNumber": 1,
-    "rawValue": 85.0,
-    "unit": "BPM"
-  }'
-```
-
-**Expected:** `200 OK` with reading object containing `rawValue`, `normalizedValue` (clamped to physiological range), `signalQuality`.
-
----
-
-### Test 5.8: Ingest Batch Readings
-
-```bash
-curl -X POST http://localhost:8080/api/sensor/reading/batch \
-  -H "Content-Type: application/json" \
-  -d '{
-    "readings": [
-      {"sensorDeviceId": "{hrmId}", "flightSessionId": "{sessionId}", "frameNumber": 2, "rawValue": 92.0, "unit": "BPM"},
-      {"sensorDeviceId": "{eegId}", "flightSessionId": "{sessionId}", "frameNumber": 2, "rawValue": 45.0, "unit": "µV²"},
-      {"sensorDeviceId": "{eyeId}", "flightSessionId": "{sessionId}", "frameNumber": 2, "rawValue": 4.2, "unit": "mm"}
-    ]
-  }'
-```
-
-**Expected:** `200 OK` with array of 3 normalized readings.
-
----
-
-### Test 5.9: Get Sensor Status for Session
-
-```bash
-curl http://localhost:8080/api/sensor/session/{sessionId}/status
-```
-
-**Expected:** JSON map with sensor types as keys and objects containing `deviceId`, `deviceName`, `connectionStatus`, `latestReading`, `lastDataReceivedAt`.
-
----
-
-### Test 5.10: Get Latest Sensor Values
-
-```bash
-curl http://localhost:8080/api/sensor/session/{sessionId}/latest-values
-```
-
-**Expected:** JSON map like:
-
-```json
-{
-  "HEART_RATE_MONITOR": 85.0,
-  "EEG_HEADBAND": 45.0,
-  "EYE_TRACKER": 4.2,
-  "GSR_SENSOR": 5.5,
-  "PULSE_OXIMETER": 98.0,
-  "SKIN_TEMPERATURE_SENSOR": 36.5
-}
-```
-
----
-
-### Test 5.11: Sensor Override on Dashboard
-
-1. Start a sensor-mode session (via UI with SENSOR MODE toggle)
-2. Open the Dashboard
-3. **Expected:**
-   - Animated **"◉ LIVE SENSOR"** badge appears (pulsing green)
-   - Dedicated sensor biometric rows appear below a purple separator line:
-     - GSR (µS) — cyan
-     - SpO₂ (%) — red
-     - Skin Temp (°C) — amber
-     - EEG α/β/θ (µV²) — purple
-     - Pupil (mm) — blue
-     - Gaze (ms) — teal
-
----
-
-### Test 5.12: Verify Biometric Override via API
-
-After running a sensor-mode session for a few frames:
-
-```bash
-curl http://localhost:8080/api/session/{id}/latest-state \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-**Expected:** The `telemetry` object has `sensorOverride: true` and sensor-specific fields populated (`gsrLevel`, `spO2Level`, `skinTemperature`, `eegAlphaPower`, `eegBetaPower`, `eegThetaPower`, `pupilDiameter`, `gazeFixationDurationMs`).
-
----
-
-### Test 5.13: Sensor + Crew Mode Mutual Exclusion (UI)
-
-1. Toggle **CREW MODE** on
-2. Toggle **SENSOR MODE** on
-3. **Expected:** CREW MODE turns off (only one active at a time)
-
----
-
-### Test 5.14: Normalization Clamping
-
-Ingest readings outside physiological range to test clamping:
-
-```bash
-# Heart rate above max range (>240)
-curl -X POST http://localhost:8080/api/sensor/reading \
-  -H "Content-Type: application/json" \
-  -d '{"sensorDeviceId": "{hrmId}", "flightSessionId": "{sessionId}", "frameNumber": 5, "rawValue": 300.0, "unit": "BPM"}'
-```
-
-**Expected:** `normalizedValue` clamped to `240.0` (max for HEART_RATE_MONITOR).
-
----
-
-### Test 5.15: Sessions List Sensor Badge
-
-1. Start both a normal session and a sensor session
-2. View the Home page session list
-3. **Expected:** Normal session has no badge; sensor session shows purple **SENSOR** badge.
-
----
-
-## Automated Unit Tests
-
-### Run All 115 Tests
-
-```bash
-cd aipclm-backend
-mvn test
-```
-
-**Expected Output:**
-
-```
-Tests run: 115, Failures: 0, Errors: 0, Skipped: 0 — BUILD SUCCESS
-```
-
-### Test Suite Breakdown
-
-| # | Test Class | Tests | Coverage |
-|---|-----------|:-----:|----------|
-| 1 | `SimulationEngineServiceTest` | 23 | Phase transitions, noise, scenario modifiers, auto-complete at 1350 frames |
-| 2 | `RiskEngineServiceTest` | 20 | Hysteresis bands, Swiss Cheese, confidence gate, scenario floor |
-| 3 | `SystemMustNotDoTest` | 14 | Safety invariants (no duplicates, no thread leaks, load bounded, no crash on ML down) |
-| 4 | `RecommendationEngineServiceTest` | 13 | All 12 recommendation triggers + deduplication |
-| 5 | `CognitiveLoadServiceTest` | 10 | Expert weights, ML fusion, EMA smoothing, clamping |
-| 6 | `SimulationOrchestratorServiceTest` | 9 | Atomic pipeline integrity, rollback on failure |
-| 7 | `MLInferenceServiceTest` | 8 | Timeout handling, fallback modes |
-| 8 | `SessionMonitoringControllerTest` | 8 | DTO exposure, 404 handling |
-| 9 | `SimulationSchedulerServiceTest` | 8 | Lifecycle, concurrency guards, duplicate prevention |
-| 10 | `PilotRepositoryTest` | 1 | JPA integration |
-| 11 | `TelemetryFrameRepositoryTest` | 1 | JPA integration with sensor fields |
-
-### Frontend Build Verification
-
-```bash
-cd aipclm-frontend
-npm run build
-```
-
-**Expected:** `✓ built in ~11s` with no errors (chunk size warning is cosmetic).
+"A heart rate monitor only tells you one number. Our system combines 12+ signals, runs them through an AI model, fuses it with an expert-computed formula, and generates actionable recommendations. It also tracks the crew dynamics, connects to ATC in real time, and uses the Swiss Cheese safety model to identify systemic risk — not just one metric."
 
 ---
 
 ## Troubleshooting
 
-### Backend won't start — "port 8080 already in use"
-
-Kill existing process:
-```bash
-# Windows
-netstat -ano | findstr :8080
-taskkill /PID <pid> /F
+### Backend says "port 8080 already in use"
+```powershell
+Get-NetTCPConnection -LocalPort 8080 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
 
-### Database connection refused
+### Backend compiles but runs old code
+Always use `mvn clean spring-boot:run` — without `clean`, Maven skips recompilation.
 
-Ensure PostgreSQL is running and `aipclm_db` exists:
-```sql
-SELECT 1;  -- basic connectivity test
-\l         -- list databases
-```
-
-### ML service SSL errors (pip install)
-
-```bash
-# Windows PowerShell
+### ML service won't install packages
+```powershell
 $env:REQUESTS_CA_BUNDLE = ""
 pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
 ```
 
-### WebSocket not connecting
-
-- Ensure the backend `WebSocketConfig` allows your origin (`http://localhost:5174`)
-- Check browser console for CORS or handshake errors
-- Try refreshing the page — WebSocket reconnects with exponential back-off
-
-### Session stuck at "RUNNING" forever
-
-Sessions auto-complete at frame 1350 (≈45 min at 2s intervals). For quicker testing, use the Stop Simulation API:
-
-```bash
-curl -X POST http://localhost:8080/api/simulation/{sessionId}/stop \
-  -H "Authorization: Bearer $TOKEN"
+### Frontend shows blank page or network errors
+1. Make sure backend is fully started first (wait for `Started AipclmBackendApplication`)
+2. Hard refresh: `Ctrl+Shift+R`
+3. Check that ports 8080 and 8001 are listening:
+```powershell
+Get-NetTCPConnection -LocalPort 8080,8001 -State Listen
 ```
 
-### Sensor devices not overriding telemetry
-
-1. Ensure the session was started in **sensor mode** (`sensorMode: true`)
-2. Ensure devices are **connected** to the session (not just registered)
-3. Ensure readings have been **ingested** for the current frame
-4. Check backend logs for `[SENSOR]` tags confirming override application
-
-### Purge all data for fresh testing
-
-```bash
-curl -X DELETE http://localhost:8080/api/session/purge-all \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-This deletes **all** sessions, telemetry, cognitive states, risks, recommendations, CRM assessments, sensor readings, and sensor devices.
+### Chat messages not appearing on the other side
+1. Make sure you used `mvn clean spring-boot:run` for the backend (not just `mvn spring-boot:run`)
+2. Hard refresh both browser tabs
+3. The chat uses WebSocket pub/sub — both tabs must have an active WebSocket connection
 
 ---
 
-<p align="center"><em>AI-PCLM Testing Guide v5.0 — Phases 0–5</em></p>
+<p align="center"><em>AI-PCLM Testing & Presentation Guide v6.0</em></p>

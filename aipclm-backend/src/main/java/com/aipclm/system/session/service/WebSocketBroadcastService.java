@@ -138,7 +138,9 @@ public class WebSocketBroadcastService {
         try {
             List<FlightSession> sessions = flightSessionRepository.findAll();
             List<SessionSummaryMessage> summaries = sessions.stream()
-                    .map(s -> SessionSummaryMessage.builder()
+                    .map(s -> {
+                        String risk = resolveLatestRiskLevel(s.getId());
+                        return SessionSummaryMessage.builder()
                             .id(s.getId())
                             .status(s.getStatus().name())
                             .pilotName(s.getPilot() != null ? s.getPilot().getFullName() : "Unknown")
@@ -148,11 +150,29 @@ public class WebSocketBroadcastService {
                             .sensorMode(s.isSensorMode())
                             .icaoAirport(s.getIcaoAirport())
                             .adsbMode(s.isAdsbMode())
-                            .build())
+                            .riskLevel(risk)
+                            .build();
+                    })
                     .collect(Collectors.toList());
             messagingTemplate.convertAndSend("/topic/sessions", summaries);
         } catch (Exception e) {
             log.warn("[WebSocket] Session list broadcast failed: {}", e.getMessage());
+        }
+    }
+
+    private String resolveLatestRiskLevel(UUID sessionId) {
+        try {
+            TelemetryFrame frame = telemetryFrameRepository
+                    .findTopByFlightSessionIdOrderByFrameNumberDesc(sessionId).orElse(null);
+            if (frame == null) return "UNKNOWN";
+            CognitiveState cog = cognitiveStateRepository
+                    .findByTelemetryFrameId(frame.getId()).orElse(null);
+            if (cog == null) return "UNKNOWN";
+            RiskAssessment risk = riskAssessmentRepository
+                    .findByCognitiveStateId(cog.getId()).orElse(null);
+            return risk != null ? risk.getRiskLevel().name() : "UNKNOWN";
+        } catch (Exception e) {
+            return "UNKNOWN";
         }
     }
 
@@ -408,6 +428,7 @@ public class WebSocketBroadcastService {
         // Phase 8
         private String icaoAirport;
         @Builder.Default private boolean adsbMode = false;
+        private String riskLevel;
     }
 
     @Data @Builder

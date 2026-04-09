@@ -94,8 +94,6 @@ Instrumentator(
     should_group_status_codes=True,
     should_respect_env_var=False,
     excluded_handlers=["/health", "/metrics"],
-    metric_namespace="aipclm",
-    metric_subsystem="ml",
 ).instrument(app).expose(app, include_in_schema=False, should_gzip=True)
 
 # ── Phase 7: OpenTelemetry Distributed Tracing ──

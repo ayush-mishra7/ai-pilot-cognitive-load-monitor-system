@@ -1,92 +1,70 @@
-# ──────────────────────────────────────────────────────
-#  AI-PCLM — Docker Compose (Full Stack)
-# ──────────────────────────────────────────────────────
-#  docker compose up --build
-#  → Frontend:   http://localhost
-#  → Backend:    http://localhost:8080
-#  → ML Service: http://localhost:8001
-#  → PostgreSQL: localhost:5432
-# ──────────────────────────────────────────────────────
+version: '3.8'
 
 services:
-  # ── PostgreSQL ──
-  postgres:
-    image: postgres:16-alpine
+  # Isolated PostgreSQL Database
+  db:
+    image: postgres:15-alpine
     container_name: aipclm-db
-    restart: unless-stopped
     environment:
-      POSTGRES_DB: aipclm_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aipclm_db
     ports:
-      - "5432:5432"
+      # Map container 5432 to host 5433 to avoid port conflict if user's local Windows Postgres is actively running on 5432
+      - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - aipclm_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d aipclm_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
-  # ── ML Service (FastAPI) ──
+  # Python ML Inference Engine
   ml-service:
     build:
       context: ./aipclm-ml-service
       dockerfile: Dockerfile
-    container_name: aipclm-ml
-    restart: unless-stopped
+    container_name: aipclm-ml-service
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 30s
+      retries: 5
 
-  # ── Backend (Spring Boot) ──
+  # Java Spring Boot Core API
   backend:
     build:
       context: ./aipclm-backend
       dockerfile: Dockerfile
     container_name: aipclm-backend
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aipclm_db
+      # Overriding YAML defaults to route across internal docker network names
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/aipclm_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       ML_SERVICE_URL: http://ml-service:8001
-      JWT_SECRET: aipclm-super-secret-key-that-is-at-least-32-bytes-long-2026
+    ports:
+      - "8080:8080"
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       ml-service:
         condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/api/test/simulation/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
 
-  # ── Frontend (Nginx) ──
+  # React + Vite Client (Served via Nginx)
   frontend:
     build:
       context: ./aipclm-frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: ""
     container_name: aipclm-frontend
-    restart: unless-stopped
     ports:
-      - "80:80"
+      # Map standard Vite dev port to external Nginx port
+      - "5173:80"
     depends_on:
-      backend:
-        condition: service_started
+      - backend
 
 volumes:
-  pgdata:
-    driver: local
+  aipclm_pgdata:

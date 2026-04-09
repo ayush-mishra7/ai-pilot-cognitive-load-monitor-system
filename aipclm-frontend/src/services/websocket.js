@@ -157,4 +157,25 @@ export function isConnected() {
   return connected && stompClient?.connected;
 }
 
-export default { subscribe, disconnect, isConnected };
+/**
+ * Publish a STOMP message to a destination.
+ * Ensures connection before sending.
+ *
+ * @param {string} destination — STOMP destination, e.g. `/app/chat/{sessionId}`
+ * @param {object} body — JSON body to send
+ */
+export async function publish(destination, body) {
+  try {
+    await ensureConnected();
+    if (stompClient?.connected) {
+      stompClient.publish({
+        destination,
+        body: JSON.stringify(body),
+      });
+    }
+  } catch (e) {
+    console.warn('[WebSocket] Failed to publish:', e);
+  }
+}
+
+export default { subscribe, disconnect, isConnected, publish };

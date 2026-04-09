@@ -32,7 +32,9 @@ public class SecurityConfig {
                 // Public endpoints — no token needed
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/session/health").permitAll()
+                .requestMatchers("/api/session/**").permitAll()
+                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/error").permitAll()
 
                 // Sensor endpoints — permit all for device integration
                 .requestMatchers("/api/sensor/**").permitAll()

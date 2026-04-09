@@ -190,7 +190,9 @@ public class SessionMonitoringController {
     public ResponseEntity<List<SessionSummaryDto>> listSessions() {
         List<FlightSession> sessions = flightSessionRepository.findAll();
         List<SessionSummaryDto> result = sessions.stream()
-                .map(s -> SessionSummaryDto.builder()
+                .map(s -> {
+                    String risk = resolveLatestRisk(s.getId());
+                    return SessionSummaryDto.builder()
                         .id(s.getId())
                         .status(s.getStatus().name())
                         .pilotName(s.getPilot() != null ? s.getPilot().getFullName() : "Unknown")
@@ -200,9 +202,27 @@ public class SessionMonitoringController {
                         .sensorMode(s.isSensorMode())
                         .icaoAirport(s.getIcaoAirport())
                         .adsbMode(s.isAdsbMode())
-                        .build())
+                        .riskLevel(risk)
+                        .build();
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
+    }
+
+    private String resolveLatestRisk(UUID sessionId) {
+        try {
+            TelemetryFrame frame = telemetryFrameRepository
+                    .findTopByFlightSessionIdOrderByFrameNumberDesc(sessionId).orElse(null);
+            if (frame == null) return "UNKNOWN";
+            CognitiveState cog = cognitiveStateRepository
+                    .findByTelemetryFrameId(frame.getId()).orElse(null);
+            if (cog == null) return "UNKNOWN";
+            RiskAssessment risk = riskAssessmentRepository
+                    .findByCognitiveStateId(cog.getId()).orElse(null);
+            return risk != null ? risk.getRiskLevel().name() : "UNKNOWN";
+        } catch (Exception e) {
+            return "UNKNOWN";
+        }
     }
 
     /* ─── Full cognitive history for a session ─── */
@@ -450,6 +470,7 @@ public class SessionMonitoringController {
         // Phase 8
         private String icaoAirport;
         @Builder.Default private boolean adsbMode = false;
+        private String riskLevel;
     }
 
     @Data

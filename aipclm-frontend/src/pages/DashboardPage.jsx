@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getLatestState } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { useWebSocket } from '../hooks/useWebSocket';
+import ChatPanel from '../components/ChatPanel';
 import dashboardBg from '../assets/dashboard-page.png';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const { setSession } = useSession();
   const [state, setState] = useState(null);
   const [status, setStatus] = useState('loading');   // loading | live | waiting | not-found
+  const [chatOpen, setChatOpen] = useState(false);
   const pollRef = useRef(null);
 
   /* Set this session as the globally active one */
@@ -368,6 +370,41 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ATC COMMS toggle button */}
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          style={{
+            position: 'absolute', bottom: '2%', right: '2%',
+            padding: '0.4em 1em',
+            background: chatOpen ? 'rgba(0,194,255,0.2)' : 'rgba(255,184,0,0.15)',
+            border: `1px solid ${chatOpen ? 'rgba(0,194,255,0.5)' : 'rgba(255,184,0,0.4)'}`,
+            borderRadius: '6px',
+            color: chatOpen ? '#00C2FF' : '#FFB800',
+            fontFamily: "'Orbitron', sans-serif",
+            fontSize: '0.6rem',
+            letterSpacing: '0.08em',
+            cursor: 'pointer',
+            zIndex: 100,
+          }}
+        >
+          {chatOpen ? '✕ CLOSE COMMS' : '📡 ATC COMMS'}
+        </button>
+
+        {/* Chat overlay */}
+        {chatOpen && (
+          <div style={{
+            position: 'absolute', bottom: '6%', right: '2%',
+            width: '280px', height: '350px',
+            zIndex: 99,
+          }}>
+            <ChatPanel
+              sessionId={sessionId}
+              senderName={`FLT-${(sessionId || '').slice(0, 8).toUpperCase()}`}
+              onClose={() => setChatOpen(false)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

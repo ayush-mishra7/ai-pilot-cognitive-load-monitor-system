@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listSessions } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
+import ChatPanel from '../components/ChatPanel';
 
 export default function AtcRadarPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [chatSessionId, setChatSessionId] = useState(null);
 
   const fetchFlights = useCallback(async () => {
     try {
@@ -19,12 +21,10 @@ export default function AtcRadarPage() {
     }
   }, []);
 
-  /* Initial REST fetch for hydration */
   useEffect(() => {
     fetchFlights();
   }, [fetchFlights]);
 
-  /* WebSocket subscription — replaces setInterval polling */
   useWebSocket('/topic/sessions', useCallback((data) => {
     const list = Array.isArray(data) ? data : [];
     setSessions(list);
@@ -40,6 +40,8 @@ export default function AtcRadarPage() {
     if (risk === 'MEDIUM') return '#FFD700';
     return '#00FF41';
   };
+
+  const isEmergency = (risk) => risk === 'HIGH' || risk === 'CRITICAL';
 
   return (
     <div style={{ padding: '2rem', maxWidth: 1400, margin: '0 auto' }}>
@@ -98,11 +100,12 @@ export default function AtcRadarPage() {
         ))}
       </div>
 
-      {/* Radar Display Placeholder */}
+      {/* Main grid: Radar + Strips + Chat */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 360px',
+        gridTemplateColumns: chatSessionId ? '1fr 360px 320px' : '1fr 360px',
         gap: '1.5rem',
+        transition: 'grid-template-columns 0.3s ease',
       }}>
 
         {/* Radar circle */}
@@ -118,7 +121,6 @@ export default function AtcRadarPage() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {/* Radar sweep */}
           <div style={{
             width: 320,
             height: 320,
@@ -156,10 +158,12 @@ export default function AtcRadarPage() {
 
             {/* Flight blips */}
             {running.map((s, i) => {
-              const angle = (i * 137.5) * (Math.PI / 180); // golden angle distribution
+              const angle = (i * 137.5) * (Math.PI / 180);
               const r = 60 + (i * 35) % 120;
               const x = 160 + r * Math.cos(angle);
               const y = 160 + r * Math.sin(angle);
+              const risk = s.riskLevel || 'LOW';
+              const emergency = isEmergency(risk);
               return (
                 <div
                   key={s.id}
@@ -171,13 +175,15 @@ export default function AtcRadarPage() {
                     width: 12,
                     height: 12,
                     borderRadius: '50%',
-                    background: riskColor(s.riskLevel || 'LOW'),
-                    boxShadow: `0 0 8px ${riskColor(s.riskLevel || 'LOW')}`,
+                    background: riskColor(risk),
+                    boxShadow: emergency
+                      ? `0 0 12px ${riskColor(risk)}, 0 0 24px ${riskColor(risk)}`
+                      : `0 0 8px ${riskColor(risk)}`,
                     cursor: 'pointer',
                     zIndex: 10,
-                    animation: 'pulse-blip 2s infinite',
+                    animation: emergency ? 'emergency-blip 0.8s infinite' : 'pulse-blip 2s infinite',
                   }}
-                  title={`Session ${(s.id || '').slice(0, 8)} — ${s.status}`}
+                  title={`Session ${(s.id || '').slice(0, 8)} — ${risk}`}
                 />
               );
             })}
@@ -232,49 +238,83 @@ export default function AtcRadarPage() {
             }}>No active flights</div>
           )}
 
-          {running.map((s) => (
-            <div
-              key={s.id}
-              onClick={() => navigate(`/atc/flight/${s.id}`)}
-              style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,184,0,0.15)',
-                borderLeft: `3px solid ${riskColor(s.riskLevel || 'LOW')}`,
-                borderRadius: '6px',
-                padding: '0.75rem 1rem',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,184,0,0.06)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{
-                  fontFamily: 'Orbitron, sans-serif',
-                  fontSize: '0.8rem',
-                  color: '#fff',
-                }}>
-                  {(s.id || '').slice(0, 8).toUpperCase()}
-                </span>
-                <span style={{
-                  fontFamily: 'Share Tech Mono, monospace',
-                  fontSize: '0.7rem',
-                  color: riskColor(s.riskLevel || 'LOW'),
-                  fontWeight: 700,
-                }}>
-                  {s.riskLevel || 'LOW'}
-                </span>
+          {running.map((s) => {
+            const risk = s.riskLevel || 'LOW';
+            const emergency = isEmergency(risk);
+            return (
+              <div
+                key={s.id}
+                style={{
+                  background: emergency ? 'rgba(255,51,51,0.06)' : 'rgba(255,255,255,0.03)',
+                  border: emergency ? '2px solid rgba(255,51,51,0.6)' : '1px solid rgba(255,184,0,0.15)',
+                  borderLeft: `3px solid ${riskColor(risk)}`,
+                  borderRadius: '6px',
+                  padding: '0.75rem 1rem',
+                  transition: 'background 0.2s, border-color 0.3s',
+                  animation: emergency ? 'emergency-strip 1.2s infinite' : 'none',
+                }}
+              >
+                <div
+                  onClick={() => navigate(`/atc/flight/${s.id}`)}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(e) => { if (!emergency) e.currentTarget.parentElement.style.background = 'rgba(255,184,0,0.06)'; }}
+                  onMouseLeave={(e) => { if (!emergency) e.currentTarget.parentElement.style.background = 'rgba(255,255,255,0.03)'; }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{
+                      fontFamily: 'Orbitron, sans-serif',
+                      fontSize: '0.8rem',
+                      color: '#fff',
+                    }}>
+                      {(s.id || '').slice(0, 8).toUpperCase()}
+                    </span>
+                    <span style={{
+                      fontFamily: 'Share Tech Mono, monospace',
+                      fontSize: '0.7rem',
+                      color: riskColor(risk),
+                      fontWeight: 700,
+                    }}>
+                      {risk}
+                    </span>
+                  </div>
+                  <div style={{
+                    fontFamily: 'Rajdhani, sans-serif',
+                    fontSize: '0.75rem',
+                    color: 'rgba(255,255,255,0.5)',
+                    marginTop: '0.25rem',
+                  }}>
+                    {s.pilotName || 'Pilot'} · {s.totalFrames || 0} frames
+                  </div>
+                </div>
+
+                {/* CONTACT button for emergency flights */}
+                {emergency && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setChatSessionId(chatSessionId === s.id ? null : s.id);
+                    }}
+                    style={{
+                      marginTop: '0.5rem',
+                      width: '100%',
+                      padding: '0.35rem',
+                      background: chatSessionId === s.id ? 'rgba(0,194,255,0.2)' : 'rgba(255,51,51,0.15)',
+                      border: chatSessionId === s.id ? '1px solid rgba(0,194,255,0.5)' : '1px solid rgba(255,51,51,0.5)',
+                      borderRadius: '4px',
+                      color: chatSessionId === s.id ? '#00C2FF' : '#FF5555',
+                      fontFamily: "'Orbitron', sans-serif",
+                      fontSize: '0.6rem',
+                      letterSpacing: '0.1em',
+                      cursor: 'pointer',
+                      animation: chatSessionId === s.id ? 'none' : 'emergency-btn 1.5s infinite',
+                    }}
+                  >
+                    {chatSessionId === s.id ? '✕ CLOSE COMMS' : '📡 CONTACT FLIGHT'}
+                  </button>
+                )}
               </div>
-              <div style={{
-                fontFamily: 'Rajdhani, sans-serif',
-                fontSize: '0.75rem',
-                color: 'rgba(255,255,255,0.5)',
-                marginTop: '0.25rem',
-              }}>
-                {s.pilotName || 'Pilot'} · {s.totalFrames || 0} frames
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Completed section */}
           {completed.length > 0 && (
@@ -312,9 +352,20 @@ export default function AtcRadarPage() {
             </>
           )}
         </div>
+
+        {/* Chat Panel (shown when CONTACT is clicked) */}
+        {chatSessionId && (
+          <div style={{ height: 500 }}>
+            <ChatPanel
+              sessionId={chatSessionId}
+              senderName="ATC-TOWER"
+              onClose={() => setChatSessionId(null)}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Radar CSS animation */}
+      {/* CSS animations */}
       <style>{`
         @keyframes radar-rotate {
           from { transform: rotate(0deg); }
@@ -323,6 +374,18 @@ export default function AtcRadarPage() {
         @keyframes pulse-blip {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.6; transform: scale(1.4); }
+        }
+        @keyframes emergency-blip {
+          0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px #FF3333, 0 0 24px #FF3333; }
+          50% { opacity: 0.3; transform: scale(1.8); box-shadow: 0 0 20px #FF3333, 0 0 40px #FF3333; }
+        }
+        @keyframes emergency-strip {
+          0%, 100% { border-color: rgba(255,51,51,0.6); background: rgba(255,51,51,0.06); }
+          50% { border-color: rgba(255,51,51,1); background: rgba(255,51,51,0.12); }
+        }
+        @keyframes emergency-btn {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </div>
